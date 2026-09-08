@@ -237,3 +237,40 @@ func TestUnknownAPIRouteIs404(t *testing.T) {
 		t.Errorf("status %d, want 404", code)
 	}
 }
+
+func TestLocalOnlyRejectsForeignOriginAndHost(t *testing.T) {
+	srv := newTestServer(t, &fakeHome{}, &fakeAuth{authorized: true})
+
+	get := func(origin, host string) (int, string) {
+		req, err := http.NewRequest("GET", srv.URL+"/api/auth/status", nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if origin != "" {
+			req.Header.Set("Origin", origin)
+		}
+		if host != "" {
+			req.Host = host
+		}
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer resp.Body.Close()
+		b, _ := io.ReadAll(resp.Body)
+		return resp.StatusCode, string(b)
+	}
+
+	if code, body := get("https://evil.example", ""); code != 403 {
+		t.Errorf("чужой Origin: status %d, want 403 (body %s)", code, body)
+	}
+	if code, body := get("", ""); code != 200 {
+		t.Errorf("без Origin: status %d, want 200 (body %s)", code, body)
+	}
+	if code, body := get("http://localhost:5173", ""); code != 200 {
+		t.Errorf("Origin с dev-сервера Vite: status %d, want 200 (body %s)", code, body)
+	}
+	if code, body := get("", "evil.example"); code != 403 {
+		t.Errorf("чужой Host: status %d, want 403 (body %s)", code, body)
+	}
+}

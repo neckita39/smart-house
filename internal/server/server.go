@@ -7,7 +7,10 @@ import (
 	"errors"
 	"io/fs"
 	"log/slog"
+	"net"
 	"net/http"
+	"net/url"
+	"strings"
 
 	"smarthome/internal/auth"
 	"smarthome/internal/macros"
@@ -59,7 +62,50 @@ func (s *Server) Handler() http.Handler {
 			http.Error(w, "UI не собран: выполните `cd web && npm run build` и пересоберите бинарник", http.StatusServiceUnavailable)
 		})
 	}
-	return mux
+	return localOnlyAPI(mux)
+}
+
+// localOnlyAPI защищает /api/ от чужих сайтов в браузере владельца: без preflight
+// (простой fetch с mode:'no-cors') запрос всё равно уйдёт, но не пройдёт проверку
+// Host/Origin. Запросы без Origin (curl, skill) и раздача UI не затрагиваются.
+func localOnlyAPI(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !strings.HasPrefix(r.URL.Path, "/api/") {
+			next.ServeHTTP(w, r)
+			return
+		}
+		if !isLocalHost(r.Host) {
+			forbidden(w)
+			return
+		}
+		if origin := r.Header.Get("Origin"); origin != "" {
+			u, err := url.Parse(origin)
+			if err != nil || !isLocalHost(u.Host) {
+				forbidden(w)
+				return
+			}
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+func isLocalHost(hostport string) bool {
+	host := hostport
+	if h, _, err := net.SplitHostPort(hostport); err == nil {
+		host = h
+	}
+	host = strings.Trim(host, "[]")
+	switch strings.ToLower(host) {
+	case "localhost", "127.0.0.1", "::1":
+		return true
+	default:
+		return false
+	}
+}
+
+func forbidden(w http.ResponseWriter) {
+	writeJSON(w, http.StatusForbidden, errorBody{Error: "forbidden",
+		Message: "запросы к API принимаются только с этого компьютера"})
 }
 
 type errorBody struct {
