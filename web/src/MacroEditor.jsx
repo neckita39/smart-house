@@ -100,9 +100,22 @@ export default function MacroEditor({ home, macro, onSaved, onCancel }) {
 }
 
 function ActionRow({ action, devices, onChange, onRemove }) {
-  const device = devices.find((d) => d.id === action.device_id) || devices[0]
-  const options = capabilityOptions(device)
-  const opt = options.find((o) => o.type === action.type && o.instance === action.instance) || options[0]
+  const device = devices.find((d) => d.id === action.device_id)
+  const options = device ? capabilityOptions(device) : []
+  const opt = options.find((o) => o.type === action.type && o.instance === action.instance)
+
+  if (!device || !opt) {
+    return (
+      <div className="action">
+        <span className="error">
+          {!device ? `Устройство недоступно (${action.device_id})` : `Умение недоступно (${label(action.instance)})`}
+        </span>
+        <button type="button" className="danger" onClick={onRemove} title="Убрать действие">
+          ✕
+        </button>
+      </div>
+    )
+  }
 
   function pickDevice(id) {
     const o = capabilityOptions(devices.find((d) => d.id === id))[0]
