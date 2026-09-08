@@ -5,22 +5,26 @@ description: Управление умным домом Яндекса и сбо
 
 # Умный дом: управление и сценарии
 
-Сервер приложения работает на http://localhost:8080 и сам хранит OAuth-токен.
-Все операции — через его API (`curl`). Напрямую к Яндексу не ходить, ключи из `.env` не читать.
+Сервер приложения работает на http://127.0.0.1:PORT и сам хранит OAuth-токен
+(не localhost — на некоторых машинах :8080 занят чем-то ещё, например Docker
+Desktop, и localhost уходит не туда). Порт — значение `PORT` из `.env`, по
+умолчанию 8080: `grep '^PORT=' .env | cut -d= -f2` (читать только эту строку,
+файл целиком не открывать — там секреты). Все операции — через API сервера
+(`curl`). Напрямую к Яндексу не ходить, ключи из `.env` не читать.
 
 ## 1. Убедиться, что сервер запущен и авторизован
 
 ```bash
-curl -sf localhost:8080/api/auth/status
+curl -sf http://127.0.0.1:${PORT:-8080}/api/auth/status
 ```
 
 - Соединение отклонено → запустить сервер в фоне: `./smart-house` (если бинарника нет — сначала `make build`), подождать 2 секунды, повторить проверку.
-- `"authorized":false` → попросить пользователя открыть http://localhost:8080 и войти через Яндекс; до входа дальше не продолжать.
+- `"authorized":false` → попросить пользователя открыть http://127.0.0.1:${PORT:-8080} и войти через Яндекс; до входа дальше не продолжать.
 
 ## 2. Узнать, какие устройства есть
 
 ```bash
-curl -s localhost:8080/api/catalog
+curl -s http://127.0.0.1:${PORT:-8080}/api/catalog
 ```
 
 Ответ: `devices[]` — `id`, `name`, `room`, `type`, `capabilities[]` (что можно менять), `properties[]` (показания датчиков); `scenarios[]` — родные сценарии Яндекса `{id, name}`.
@@ -41,11 +45,11 @@ curl -s localhost:8080/api/catalog
 
 ```bash
 # новый
-curl -s -X POST localhost:8080/api/macros -H 'Content-Type: application/json' -d @macro.json
+curl -s -X POST http://127.0.0.1:${PORT:-8080}/api/macros -H 'Content-Type: application/json' -d @macro.json
 # правка существующего (id — из GET /api/macros)
-curl -s -X PUT localhost:8080/api/macros/<id> -H 'Content-Type: application/json' -d @macro.json
+curl -s -X PUT http://127.0.0.1:${PORT:-8080}/api/macros/<id> -H 'Content-Type: application/json' -d @macro.json
 # удалить
-curl -s -X DELETE localhost:8080/api/macros/<id>
+curl -s -X DELETE http://127.0.0.1:${PORT:-8080}/api/macros/<id>
 ```
 
 Ответ 400 — в `message` причина (нет имени, нет действий, нет device_id). После сохранения предложить сразу выполнить макрос и проверить результат.
@@ -53,20 +57,20 @@ curl -s -X DELETE localhost:8080/api/macros/<id>
 ## 4. Выполнить
 
 ```bash
-curl -s -X POST localhost:8080/api/macros/<id>/run        # макрос (id или найти по имени в GET /api/macros)
-curl -s -X POST localhost:8080/api/scenarios/<id>/run     # родной сценарий Яндекса (id из каталога)
+curl -s -X POST http://127.0.0.1:${PORT:-8080}/api/macros/<id>/run        # макрос (id или найти по имени в GET /api/macros)
+curl -s -X POST http://127.0.0.1:${PORT:-8080}/api/scenarios/<id>/run     # родной сценарий Яндекса (id из каталога)
 ```
 
 Разовая команда без макроса («включи свет на кухне»):
 
 ```bash
-curl -s -X POST localhost:8080/api/devices/actions -H 'Content-Type: application/json' \
+curl -s -X POST http://127.0.0.1:${PORT:-8080}/api/devices/actions -H 'Content-Type: application/json' \
   -d '{"devices":[{"id":"<device_id>","actions":[{"type":"devices.capabilities.on_off","state":{"instance":"on","value":true}}]}]}'
 ```
 
 В ответе Яндекса для каждого устройства `capabilities[].state.action_result.status`: `DONE` — сработало; иначе `error_code`/`error_message` — сообщить пользователю, какое устройство не сработало и почему (`DEVICE_UNREACHABLE` — не отвечает, обычно нет питания или сети).
 
-HTTP 401 от сервера — токен протух: попросить пользователя войти заново через http://localhost:8080.
+HTTP 401 от сервера — токен протух: попросить пользователя войти заново через http://127.0.0.1:${PORT:-8080}.
 
 ## Как отвечать
 

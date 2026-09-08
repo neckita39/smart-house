@@ -60,6 +60,6 @@ func run(logger *slog.Logger) error {
 	}
 
 	addr := "127.0.0.1:" + cfg.Port
-	logger.Info("сервер запущен", "url", "http://localhost:"+cfg.Port, "authorized", tokens.Authorized())
+	logger.Info("сервер запущен", "url", "http://127.0.0.1:"+cfg.Port, "authorized", tokens.Authorized())
 	return http.ListenAndServe(addr, srv.Handler())
 }
