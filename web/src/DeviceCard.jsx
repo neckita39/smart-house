@@ -8,17 +8,23 @@ export default function DeviceCard({ device, reload, onUnauthorized }) {
   const [busy, setBusy] = useState(false)
 
   // send отправляет одно действие и после ответа перечитывает состояние дома,
-  // чтобы карточка показала фактическое состояние устройства.
+  // чтобы карточка показала фактическое состояние устройства. Возвращает true при
+  // успехе и false при ошибке — контролы откатывают оптимистичное значение при false.
   async function send(type, instance, value) {
     setBusy(true)
     setError('')
     try {
       const resp = await api.deviceActions([{ id: device.id, actions: [{ type, state: { instance, value } }] }])
       const errors = actionErrors(resp)
-      if (errors.length) setError(errors.join('; '))
+      if (errors.length) {
+        setError(errors.join('; '))
+        return false
+      }
+      return true
     } catch (e) {
       if (e.status === 401) onUnauthorized()
-      setError(e.message)
+      else setError(e.message)
+      return false
     } finally {
       setBusy(false)
       reload()

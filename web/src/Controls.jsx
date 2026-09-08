@@ -52,8 +52,11 @@ function Switch({ text, checked, disabled, onChange }) {
         checked={local}
         disabled={disabled}
         onChange={(e) => {
+          const prev = local
           setLocal(e.target.checked)
-          onChange(e.target.checked)
+          onChange(e.target.checked).then((ok) => {
+            if (!ok) setLocal(prev)
+          })
         }}
       />
       <span className="value">{local ? 'вкл' : 'выкл'}</span>
@@ -64,7 +67,11 @@ function Switch({ text, checked, disabled, onChange }) {
 function Slider({ text, min, max, step, value, suffix, disabled, onCommit }) {
   const [local, setLocal] = useSynced(value)
   const commit = () => {
-    if (local !== value) onCommit(Number(local))
+    if (local === value) return
+    const prev = value
+    onCommit(Number(local)).then((ok) => {
+      if (!ok) setLocal(prev)
+    })
   }
   return (
     <div className="control">
@@ -131,7 +138,12 @@ function ColorSetting({ cap, busy, onChange }) {
   const current = model && state.instance === model ? state.value : null
   const hex = current == null ? '#ffffff' : model === 'rgb' ? rgbIntToHex(current) : hsvToHex(current)
   const [localHex, setLocalHex] = useSynced(hex)
-  const commitColor = useDebounced((h) => onChange(cap.type, model, model === 'rgb' ? hexToRgbInt(h) : hexToHsv(h)))
+  const commitColor = useDebounced((h) => {
+    const prev = hex
+    onChange(cap.type, model, model === 'rgb' ? hexToRgbInt(h) : hexToHsv(h)).then((ok) => {
+      if (!ok) setLocalHex(prev)
+    })
+  })
 
   return (
     <>
