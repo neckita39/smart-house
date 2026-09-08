@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
 	"time"
 
@@ -19,9 +20,12 @@ var fixedNow = time.Date(2026, 9, 8, 12, 0, 0, 0, time.UTC)
 func fakeOAuth(t *testing.T, token string) (*yandex.OAuth, map[string]int) {
 	t.Helper()
 	calls := map[string]int{}
+	var mu sync.Mutex
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		r.ParseForm()
+		mu.Lock()
 		calls[r.PostForm.Get("grant_type")]++
+		mu.Unlock()
 		fmt.Fprintf(w, `{"access_token":%q,"refresh_token":"ref-new","expires_in":31536000}`, token)
 	}))
 	t.Cleanup(srv.Close)
@@ -146,5 +150,31 @@ func TestRefreshWithoutTokenReturnsErrNoToken(t *testing.T) {
 	m, _ := newTestManager(t, o)
 	if _, err := m.Refresh(context.Background()); err != ErrNoToken {
 		t.Errorf("err = %v, want ErrNoToken", err)
+	}
+}
+
+func TestConcurrentTokenCallsRefreshOnce(t *testing.T) {
+	o, calls := fakeOAuth(t, "fresh")
+	store := &Store{Path: filepath.Join(t.TempDir(), "token.json")}
+	store.Save(yandex.Token{AccessToken: "stale", RefreshToken: "ref-old", ExpiresAt: fixedNow.Add(time.Hour)})
+	m, err := NewManager(o, store)
+	if err != nil {
+		t.Fatal(err)
+	}
+	m.now = func() time.Time { return fixedNow }
+
+	var wg sync.WaitGroup
+	for i := 0; i < 10; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if tok, err := m.Token(context.Background()); err != nil || tok != "fresh" {
+				t.Errorf("Token = %q, %v", tok, err)
+			}
+		}()
+	}
+	wg.Wait()
+	if calls["refresh_token"] != 1 {
+		t.Errorf("refresh calls = %d, want 1", calls["refresh_token"])
 	}
 }
