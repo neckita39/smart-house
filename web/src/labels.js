@@ -58,13 +58,17 @@ export function typeLabel(type = '') {
 }
 
 // actionErrors собирает ошибки из ответа devices/actions в человекочитаемый список.
-export function actionErrors(resp) {
+// deviceName — необязательная функция id → имя устройства; если передана,
+// каждое сообщение получает префикс с именем («Торшер · Питание: устройство не отвечает»).
+export function actionErrors(resp, deviceName) {
   const out = []
   for (const d of resp?.devices || []) {
+    const name = typeof deviceName === 'function' ? deviceName(d.id) : null
     for (const c of d.capabilities || []) {
       const r = c.state?.action_result
       if (r && r.status !== 'DONE') {
-        out.push(`${label(c.state?.instance)}: ${r.error_message || errorText(r.error_code)}`)
+        const msg = `${label(c.state?.instance)}: ${r.error_message || errorText(r.error_code)}`
+        out.push(name ? `${name} · ${msg}` : msg)
       }
     }
   }

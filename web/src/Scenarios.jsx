@@ -17,16 +17,18 @@ export default function Scenarios({ home, onUnauthorized }) {
         .catch((e) => setError(e.message)),
     [],
   )
+  // Перечитываем макросы при каждом изменении home (после опроса), чтобы макросы,
+  // созданные Claude через API, появлялись без переключения вкладок.
   useEffect(() => {
     loadMacros()
-  }, [loadMacros])
+  }, [loadMacros, home])
 
   // run запускает сценарий/макрос и пишет результат рядом с кнопкой.
   function run(id, promise) {
     setStatus((s) => ({ ...s, [id]: 'Запускаем…' }))
     promise
       .then((resp) => {
-        const errs = actionErrors(resp)
+        const errs = actionErrors(resp, (id) => home.devices.find((d) => d.id === id)?.name)
         setStatus((s) => ({ ...s, [id]: errs.length ? 'Ошибка: ' + errs.join('; ') : 'Выполнено ✓' }))
       })
       .catch((e) => {

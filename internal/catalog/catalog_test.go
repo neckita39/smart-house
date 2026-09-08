@@ -88,6 +88,33 @@ func TestBuildCompactsUserInfo(t *testing.T) {
 	}
 }
 
+func TestBuildRangeWithoutPrecisionHasNilStep(t *testing.T) {
+	raw := `{
+	  "status": "ok", "request_id": "r", "rooms": [],
+	  "devices": [{
+	    "id": "d1", "name": "Штора", "type": "devices.types.openable.curtain", "room": "",
+	    "capabilities": [
+	      {"type": "devices.capabilities.range", "retrievable": true,
+	       "parameters": {"instance": "open", "range": {"min": 0, "max": 100, "precision": 0}},
+	       "state": {"instance": "open", "value": 50}}
+	    ],
+	    "properties": []
+	  }],
+	  "scenarios": []
+	}`
+	cat, err := Build(json.RawMessage(raw))
+	if err != nil {
+		t.Fatalf("Build: %v", err)
+	}
+	c := cat.Devices[0].Capabilities[0]
+	if c.Min == nil || *c.Min != 0 || c.Max == nil || *c.Max != 100 {
+		t.Errorf("min/max = %+v", c)
+	}
+	if c.Step != nil {
+		t.Errorf("Step = %v, want nil когда precision == 0", *c.Step)
+	}
+}
+
 func TestBuildRejectsBadJSON(t *testing.T) {
 	if _, err := Build(json.RawMessage(`nope`)); err == nil {
 		t.Fatal("ожидалась ошибка")

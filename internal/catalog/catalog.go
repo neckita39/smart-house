@@ -149,7 +149,10 @@ func convert(c rawCapability) []Capability {
 	case "range":
 		out := Capability{Type: c.Type, Instance: p.Instance, Kind: "number", Unit: p.Unit, Value: valueOf(p.Instance)}
 		if p.Range != nil {
-			out.Min, out.Max, out.Step = &p.Range.Min, &p.Range.Max, &p.Range.Precision
+			out.Min, out.Max = &p.Range.Min, &p.Range.Max
+			if p.Range.Precision != 0 {
+				out.Step = &p.Range.Precision
+			}
 		}
 		return []Capability{out}
 	case "mode":
