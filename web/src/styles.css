@@ -519,9 +519,11 @@ button {
   outline: none;
   text-overflow: ellipsis;
 }
+/* Нативный список раскрывается системным цветом, иначе в тёмной теме он
+   рискует остаться светлым с почти белым текстом. */
 .sel select option {
-  color: initial;
-  background: initial;
+  color: CanvasText;
+  background: Canvas;
 }
 .sel:has(select:disabled) {
   opacity: 0.45;
@@ -626,4 +628,101 @@ input[type='color'].swatch::-moz-color-swatch {
   flex-grow: 1;
   background: var(--bg);
   font-variant-numeric: tabular-nums;
+}
+
+/* ── каркас приложения ─────────────────────────────────────────────────── */
+
+.app {
+  min-height: 100vh;
+  padding: var(--pad-page);
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.app-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.app-head .brand {
+  font-size: 20px;
+  flex: 1;
+}
+.app-head .tabs {
+  display: flex;
+  gap: 8px;
+}
+.app-head .head-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  justify-content: flex-end;
+}
+
+.chips {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.placeholder {
+  padding: 40px 0;
+  color: var(--muted);
+}
+
+.banner.info {
+  background: var(--control-bg);
+  color: var(--muted);
+}
+
+/* ── экран «Устройства» ────────────────────────────────────────────────── */
+
+.room {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-grid);
+}
+.room-head {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.room-head h2 {
+  margin: 0;
+  font-size: 26px;
+}
+.sub {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--gap-grid);
+}
+
+.tile .body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.row.between {
+  justify-content: space-between;
+  font-size: 13px;
+}
+
+.tile .readouts {
+  display: flex;
+  align-items: flex-end;
+  gap: 18px;
+  flex-wrap: wrap;
+}
+.tile .readout {
+  white-space: nowrap;
 }

@@ -1,5 +1,6 @@
 // Иконки дизайна «Плитки» — контурные, 24×24, цвет наследуется через currentColor.
 // Пути перенесены из design/canvas/_icons.txt.
+import { shortType } from './labels'
 
 const PATHS = {
   LAMP: (
@@ -121,9 +122,6 @@ const KINDS = [
   [/^media_device/, 'TV', 'on-power'],
   [/^camera/, 'CAM', 'on-power'],
 ]
-
-// shortType: 'devices.types.light.lamp' → 'light.lamp'.
-export const shortType = (type = '') => type.replace(/^devices\.types\./, '')
 
 function kind(type) {
   const short = shortType(type)

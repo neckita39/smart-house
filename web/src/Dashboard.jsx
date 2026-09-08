@@ -1,4 +1,5 @@
 import DeviceCard from './DeviceCard'
+import { devicesCount } from './labels'
 
 // groupByRoom раскладывает устройства по комнатам; без комнаты — в «Без комнаты».
 export function groupByRoom(home) {
@@ -14,15 +15,22 @@ export function groupByRoom(home) {
   return rooms.filter((r) => r.devices.length)
 }
 
-export default function Dashboard({ home, reload, onUnauthorized }) {
-  const rooms = groupByRoom(home)
+const isOn = (d) =>
+  (d.capabilities || []).some((c) => c.type.split('.').pop() === 'on_off' && !!c.state?.value)
+
+export default function Dashboard({ rooms, reload, onUnauthorized }) {
   if (!rooms.length) {
-    return <p className="muted center">Устройств нет. Добавьте их в приложении «Дом с Алисой».</p>
+    return <div className="banner info">Здесь пока нет устройств. Добавьте их в приложении «Дом с Алисой».</div>
   }
   return rooms.map((room) => (
     <section className="room" key={room.id}>
-      <h2>{room.name}</h2>
-      <div className="devices">
+      <div className="room-head">
+        <h2 className="display">{room.name}</h2>
+        <span className="sub">
+          {devicesCount(room.devices.length)} · {room.devices.filter(isOn).length} включено
+        </span>
+      </div>
+      <div className="grid">
         {room.devices.map((d) => (
           <DeviceCard key={d.id} device={d} reload={reload} onUnauthorized={onUnauthorized} />
         ))}
