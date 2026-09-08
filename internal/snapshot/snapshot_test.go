@@ -81,3 +81,41 @@ func TestParseRejectsBadJSON(t *testing.T) {
 		t.Fatal("ожидалась ошибка")
 	}
 }
+
+const colorAndThermostat = `{"status":"ok","rooms":[],"devices":[
+ {"id":"lamp","name":"Лампа","type":"devices.types.light","room":"",
+  "capabilities":[
+   {"type":"devices.capabilities.on_off","parameters":{},"state":{"instance":"on","value":true}},
+   {"type":"devices.capabilities.color_setting","parameters":{"color_model":"hsv","temperature_k":{"min":2700,"max":6500}},"state":{"instance":"temperature_k","value":4000}}],
+  "properties":[]},
+ {"id":"heater","name":"Батареи","type":"devices.types.thermostat","room":"",
+  "capabilities":[{"type":"devices.capabilities.range","parameters":{"instance":"temperature","unit":"unit.temperature.celsius","range":{"min":5,"max":30,"precision":1}},"state":{"instance":"temperature","value":22}}],
+  "properties":[{"type":"devices.properties.float","parameters":{"instance":"temperature","unit":"unit.temperature.celsius"},"state":{"instance":"temperature","value":25.9}}]}
+],"scenarios":[]}`
+
+func TestParseColorSettingAndPropsPrecedence(t *testing.T) {
+	s, err := Parse(json.RawMessage(colorAndThermostat), at)
+	if err != nil {
+		t.Fatal(err)
+	}
+	lamp := s.Devices["lamp"]
+	if lamp.CapTypes["temperature_k"] != "devices.capabilities.color_setting" || lamp.CapTypes["hsv"] != "devices.capabilities.color_setting" {
+		t.Errorf("color_setting не разложен на temperature_k и hsv: %+v", lamp.CapTypes)
+	}
+	if r := lamp.Ranges["temperature_k"]; !r.HasRange || r.Min != 2700 || r.Max != 6500 {
+		t.Errorf("temperature_k range = %+v", r)
+	}
+	if v, ok := s.Value("lamp", "temperature_k"); !ok || v != float64(4000) {
+		t.Errorf("temperature_k value = %v %v", v, ok)
+	}
+	if _, ok := s.Value("lamp", "hsv"); ok {
+		t.Error("hsv без state не должен иметь значения")
+	}
+	// Свойство «температура» (факт 25.9) важнее умения «температура» (задано 22).
+	if v, ok := s.Value("heater", "temperature"); !ok || v != 25.9 {
+		t.Errorf("heater temperature = %v %v, want 25.9 (свойство приоритетнее умения)", v, ok)
+	}
+	if heater := s.Devices["heater"]; heater.Caps["temperature"] != float64(22) || heater.CapTypes["temperature"] != "devices.capabilities.range" {
+		t.Errorf("heater caps = %+v types = %+v", heater.Caps, heater.CapTypes)
+	}
+}
