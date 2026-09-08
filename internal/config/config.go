@@ -14,6 +14,8 @@ type Config struct {
 	ClientSecret string
 	Port         string
 	DataDir      string
+	Host         string
+	AllowedHosts []string
 }
 
 // Load читает файл envPath (если он есть) и переменные окружения;
@@ -37,11 +39,30 @@ func Load(envPath string) (Config, error) {
 		ClientSecret: get("YANDEX_CLIENT_SECRET", ""),
 		Port:         get("PORT", "8080"),
 		DataDir:      get("DATA_DIR", "data"),
+		Host:         get("HOST", "127.0.0.1"),
+		AllowedHosts: parseAllowedHosts(get("ALLOWED_HOSTS", "")),
 	}
 	if cfg.ClientID == "" || cfg.ClientSecret == "" {
 		return Config{}, errors.New("нужны YANDEX_CLIENT_ID и YANDEX_CLIENT_SECRET (в .env или переменных окружения)")
 	}
 	return cfg, nil
+}
+
+// parseAllowedHosts разбирает список хостов через запятую: обрезает пробелы,
+// отбрасывает пустые элементы.
+func parseAllowedHosts(raw string) []string {
+	if raw == "" {
+		return nil
+	}
+	var hosts []string
+	for _, h := range strings.Split(raw, ",") {
+		h = strings.TrimSpace(h)
+		if h == "" {
+			continue
+		}
+		hosts = append(hosts, h)
+	}
+	return hosts
 }
 
 func readDotEnv(path string) (map[string]string, error) {

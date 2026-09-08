@@ -3,12 +3,13 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"reflect"
 	"testing"
 )
 
 func clearEnv(t *testing.T) {
 	t.Helper()
-	for _, k := range []string{"YANDEX_CLIENT_ID", "YANDEX_CLIENT_SECRET", "PORT", "DATA_DIR"} {
+	for _, k := range []string{"YANDEX_CLIENT_ID", "YANDEX_CLIENT_SECRET", "PORT", "DATA_DIR", "HOST", "ALLOWED_HOSTS"} {
 		t.Setenv(k, "")
 	}
 }
@@ -76,5 +77,38 @@ func TestLoadRejectsMalformedLine(t *testing.T) {
 	os.WriteFile(path, []byte("YANDEX_CLIENT_ID id\n"), 0o600)
 	if _, err := Load(path); err == nil {
 		t.Fatal("ожидалась ошибка на строке без '='")
+	}
+}
+
+func TestLoadHostAndAllowedHostsDefaults(t *testing.T) {
+	clearEnv(t)
+	t.Setenv("YANDEX_CLIENT_ID", "id")
+	t.Setenv("YANDEX_CLIENT_SECRET", "sec")
+
+	cfg, err := Load(filepath.Join(t.TempDir(), "nope.env"))
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.Host != "127.0.0.1" {
+		t.Errorf("Host = %q, want 127.0.0.1", cfg.Host)
+	}
+	if len(cfg.AllowedHosts) != 0 {
+		t.Errorf("AllowedHosts = %v, want empty", cfg.AllowedHosts)
+	}
+}
+
+func TestLoadParsesAllowedHosts(t *testing.T) {
+	clearEnv(t)
+	t.Setenv("YANDEX_CLIENT_ID", "id")
+	t.Setenv("YANDEX_CLIENT_SECRET", "sec")
+	t.Setenv("ALLOWED_HOSTS", "192.168.1.95, smart-house.local")
+
+	cfg, err := Load(filepath.Join(t.TempDir(), "nope.env"))
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	want := []string{"192.168.1.95", "smart-house.local"}
+	if !reflect.DeepEqual(cfg.AllowedHosts, want) {
+		t.Errorf("AllowedHosts = %v, want %v", cfg.AllowedHosts, want)
 	}
 }

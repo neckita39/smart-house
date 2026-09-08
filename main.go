@@ -52,14 +52,23 @@ func run(logger *slog.Logger) error {
 	}
 
 	srv := &server.Server{
-		Auth:   tokens,
-		Home:   &yandex.Client{Tokens: tokens, Log: logger},
-		Macros: macroStore,
-		UI:     ui,
-		Log:    logger,
+		Auth:         tokens,
+		Home:         &yandex.Client{Tokens: tokens, Log: logger},
+		Macros:       macroStore,
+		UI:           ui,
+		Log:          logger,
+		AllowedHosts: cfg.AllowedHosts,
 	}
 
-	addr := "127.0.0.1:" + cfg.Port
-	logger.Info("сервер запущен", "url", "http://127.0.0.1:"+cfg.Port, "authorized", tokens.Authorized())
+	addr := cfg.Host + ":" + cfg.Port
+	displayHost := cfg.Host
+	if displayHost == "0.0.0.0" {
+		displayHost = "127.0.0.1"
+		logger.Info("сервер запущен", "url", "http://"+displayHost+":"+cfg.Port,
+			"listen", "0.0.0.0:"+cfg.Port, "authorized", tokens.Authorized())
+	} else {
+		logger.Info("сервер запущен", "url", "http://"+displayHost+":"+cfg.Port,
+			"authorized", tokens.Authorized())
+	}
 	return http.ListenAndServe(addr, srv.Handler())
 }

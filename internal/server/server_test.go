@@ -274,3 +274,47 @@ func TestLocalOnlyRejectsForeignOriginAndHost(t *testing.T) {
 		t.Errorf("чужой Host: status %d, want 403 (body %s)", code, body)
 	}
 }
+
+func TestAllowedHostsPermitsConfiguredNetworkHost(t *testing.T) {
+	store, err := macros.NewStore(filepath.Join(t.TempDir(), "macros.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	srv := httptest.NewServer((&Server{
+		Auth:         &fakeAuth{authorized: true},
+		Home:         &fakeHome{},
+		Macros:       store,
+		AllowedHosts: []string{"192.168.1.95"},
+	}).Handler())
+	t.Cleanup(srv.Close)
+
+	get := func(origin, host string) (int, string) {
+		req, err := http.NewRequest("GET", srv.URL+"/api/auth/status", nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if origin != "" {
+			req.Header.Set("Origin", origin)
+		}
+		if host != "" {
+			req.Host = host
+		}
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer resp.Body.Close()
+		b, _ := io.ReadAll(resp.Body)
+		return resp.StatusCode, string(b)
+	}
+
+	if code, body := get("", "192.168.1.95:8765"); code != 200 {
+		t.Errorf("Host из ALLOWED_HOSTS: status %d, want 200 (body %s)", code, body)
+	}
+	if code, body := get("http://192.168.1.95:8765", ""); code != 200 {
+		t.Errorf("Origin из ALLOWED_HOSTS: status %d, want 200 (body %s)", code, body)
+	}
+	if code, body := get("", "evil.example"); code != 403 {
+		t.Errorf("чужой Host даже с ALLOWED_HOSTS: status %d, want 403 (body %s)", code, body)
+	}
+}

@@ -32,11 +32,12 @@ type Auth interface {
 }
 
 type Server struct {
-	Auth   Auth
-	Home   HomeAPI
-	Macros *macros.Store
-	UI     fs.FS // корень собранного фронтенда; nil — UI не раздаётся
-	Log    *slog.Logger
+	Auth         Auth
+	Home         HomeAPI
+	Macros       *macros.Store
+	UI           fs.FS // корень собранного фронтенда; nil — UI не раздаётся
+	Log          *slog.Logger
+	AllowedHosts []string // хосты/IP из локальной сети, которым разрешён доступ к /api/ (без порта)
 }
 
 func (s *Server) Handler() http.Handler {
@@ -62,25 +63,26 @@ func (s *Server) Handler() http.Handler {
 			http.Error(w, "UI не собран: выполните `cd web && npm run build` и пересоберите бинарник", http.StatusServiceUnavailable)
 		})
 	}
-	return localOnlyAPI(mux)
+	return s.localOnlyAPI(mux)
 }
 
 // localOnlyAPI защищает /api/ от чужих сайтов в браузере владельца: без preflight
 // (простой fetch с mode:'no-cors') запрос всё равно уйдёт, но не пройдёт проверку
 // Host/Origin. Запросы без Origin (curl, skill) и раздача UI не затрагиваются.
-func localOnlyAPI(next http.Handler) http.Handler {
+// Кроме loopback, пропускаются хосты из s.AllowedHosts (доступ из локальной сети).
+func (s *Server) localOnlyAPI(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !strings.HasPrefix(r.URL.Path, "/api/") {
 			next.ServeHTTP(w, r)
 			return
 		}
-		if !isLocalHost(r.Host) {
+		if !s.isAllowedHost(r.Host) {
 			forbidden(w)
 			return
 		}
 		if origin := r.Header.Get("Origin"); origin != "" {
 			u, err := url.Parse(origin)
-			if err != nil || !isLocalHost(u.Host) {
+			if err != nil || !s.isAllowedHost(u.Host) {
 				forbidden(w)
 				return
 			}
@@ -89,18 +91,36 @@ func localOnlyAPI(next http.Handler) http.Handler {
 	})
 }
 
-func isLocalHost(hostport string) bool {
-	host := hostport
-	if h, _, err := net.SplitHostPort(hostport); err == nil {
-		host = h
+// isAllowedHost: loopback разрешён всегда; хосты из AllowedHosts сравниваются
+// без порта, регистронезависимо.
+func (s *Server) isAllowedHost(hostport string) bool {
+	if isLocalHost(hostport) {
+		return true
 	}
-	host = strings.Trim(host, "[]")
-	switch strings.ToLower(host) {
+	host := hostOnly(hostport)
+	for _, allowed := range s.AllowedHosts {
+		if strings.EqualFold(host, allowed) {
+			return true
+		}
+	}
+	return false
+}
+
+func isLocalHost(hostport string) bool {
+	switch strings.ToLower(hostOnly(hostport)) {
 	case "localhost", "127.0.0.1", "::1":
 		return true
 	default:
 		return false
 	}
+}
+
+func hostOnly(hostport string) string {
+	host := hostport
+	if h, _, err := net.SplitHostPort(hostport); err == nil {
+		host = h
+	}
+	return strings.Trim(host, "[]")
 }
 
 func forbidden(w http.ResponseWriter) {
