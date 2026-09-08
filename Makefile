@@ -1,4 +1,4 @@
-.PHONY: build web test run clean
+.PHONY: build web test run clean build-intel deploy
 
 # Собрать фронтенд и бинарник.
 build: web
@@ -17,4 +17,19 @@ run:
 	go run .
 
 clean:
-	rm -rf smart-house web/dist
+	rm -rf smart-house web/dist build
+
+# Кросс-сборка под Intel Mac (домашний сервер) — бинарник без CGO.
+build-intel: web
+	GOOS=darwin GOARCH=amd64 CGO_ENABLED=0 go build -o build/smart-house-darwin-amd64 .
+
+# Деплой на домашний сервер: make deploy DEPLOY=user@192.168.1.95
+# .env не копируется автоматически — его нужно скопировать вручную один раз.
+deploy: build-intel
+ifndef DEPLOY
+	$(error укажите DEPLOY=user@host, например make deploy DEPLOY=user@192.168.1.95)
+endif
+	rsync -az build/smart-house-darwin-amd64 $(DEPLOY):smart-house/smart-house
+	rsync -az deploy/ $(DEPLOY):smart-house/deploy/
+	@echo "скопируйте .env один раз: scp .env $(DEPLOY):smart-house/.env"
+	ssh $(DEPLOY) 'cd smart-house && bash deploy/install.sh'
