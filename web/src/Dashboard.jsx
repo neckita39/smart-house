@@ -2,6 +2,8 @@ import DeviceCard from './DeviceCard'
 import { devicesCount } from './labels'
 
 // groupByRoom раскладывает устройства по комнатам; без комнаты — в «Без комнаты».
+// Пустые комнаты отбрасываются, а непустые сортируются по имени (стабильный порядок:
+// Яндекс отдаёт комнаты в разном порядке на каждый опрос), «Без комнаты» — всегда последняя.
 export function groupByRoom(home) {
   const byId = new Map((home.devices || []).map((d) => [d.id, d]))
   const rooms = (home.rooms || []).map((r) => ({
@@ -11,8 +13,10 @@ export function groupByRoom(home) {
   }))
   const placed = new Set(rooms.flatMap((r) => r.devices.map((d) => d.id)))
   const rest = (home.devices || []).filter((d) => !placed.has(d.id))
-  if (rest.length) rooms.push({ id: '_none', name: 'Без комнаты', devices: rest })
-  return rooms.filter((r) => r.devices.length)
+  const result = rooms.filter((r) => r.devices.length)
+  result.sort((a, b) => a.name.localeCompare(b.name, 'ru'))
+  if (rest.length) result.push({ id: '_none', name: 'Без комнаты', devices: rest })
+  return result
 }
 
 const isOn = (d) =>

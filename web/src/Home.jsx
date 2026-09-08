@@ -35,20 +35,10 @@ export default function Home({ onUnauthorized }) {
   const [actionError, setActionError] = useState('')
   const [busy, setBusy] = useState(false)
 
+  // rooms уже отфильтрован (без пустых комнат) и отсортирован стабильно (groupByRoom);
+  // чипы переиспользуют этот же порядок, чтобы не «прыгать» между опросами.
   const rooms = useMemo(() => (home ? groupByRoom(home) : []), [home])
-  // Чипы показывают все комнаты дома, даже пустые: в пустой видно пустое состояние.
-  const chips = useMemo(() => {
-    if (!home) return []
-    const byId = new Map(rooms.map((r) => [r.id, r]))
-    const list = (home.rooms || []).map((r) => ({
-      id: r.id,
-      name: r.name,
-      count: byId.get(r.id)?.devices.length || 0,
-    }))
-    const none = byId.get('_none')
-    if (none) list.push({ id: none.id, name: none.name, count: none.devices.length })
-    return list
-  }, [home, rooms])
+  const chips = useMemo(() => rooms.map((r) => ({ id: r.id, name: r.name, count: r.devices.length })), [rooms])
 
   // По умолчанию — первая комната дома; забытая или исчезнувшая комната сбрасывается.
   const known = room === ALL || chips.some((c) => c.id === room)
