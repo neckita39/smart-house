@@ -2,6 +2,7 @@ package yandex
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -76,8 +77,26 @@ func TestExchangeReturnsOAuthError(t *testing.T) {
 	o := &OAuth{ClientID: "cid", ClientSecret: "sec", TokenURL: srv.URL}
 
 	_, err := o.Exchange(context.Background(), "bad")
-	if err == nil || !strings.Contains(err.Error(), "invalid_grant") || !strings.Contains(err.Error(), "Code has expired") {
-		t.Fatalf("err = %v, want invalid_grant with description", err)
+	var oe *OAuthError
+	if !errors.As(err, &oe) {
+		t.Fatalf("err = %v, want *OAuthError", err)
+	}
+	if oe.Code != "invalid_grant" || oe.Description != "Code has expired" || oe.Status != 400 {
+		t.Errorf("oe = %+v, want Code=invalid_grant Description=%q Status=400", oe, "Code has expired")
+	}
+}
+
+func TestExchangeNon200WithoutErrorFieldBecomesHTTPErrorOAuthError(t *testing.T) {
+	srv, _ := oauthServer(t, 400, `{"foo":"bar"}`)
+	o := &OAuth{ClientID: "cid", ClientSecret: "sec", TokenURL: srv.URL}
+
+	_, err := o.Exchange(context.Background(), "bad")
+	var oe *OAuthError
+	if !errors.As(err, &oe) {
+		t.Fatalf("err = %v, want *OAuthError", err)
+	}
+	if oe.Status != 400 || oe.Code != "http_error" || oe.Description != `{"foo":"bar"}` {
+		t.Errorf("oe = %+v", oe)
 	}
 }
 

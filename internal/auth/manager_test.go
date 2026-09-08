@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -150,6 +151,42 @@ func TestRefreshWithoutTokenReturnsErrNoToken(t *testing.T) {
 	m, _ := newTestManager(t, o)
 	if _, err := m.Refresh(context.Background()); err != ErrNoToken {
 		t.Errorf("err = %v, want ErrNoToken", err)
+	}
+}
+
+func TestRefreshWithInvalidGrantLogsOut(t *testing.T) {
+	calls := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls++
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprint(w, `{"error":"invalid_grant","error_description":"expired"}`)
+	}))
+	t.Cleanup(srv.Close)
+	o := &yandex.OAuth{ClientID: "cid", ClientSecret: "sec", TokenURL: srv.URL,
+		Now: func() time.Time { return fixedNow }}
+
+	store := &Store{Path: filepath.Join(t.TempDir(), "data", "token.json")}
+	if err := store.Save(yandex.Token{AccessToken: "stale", RefreshToken: "ref-old", ExpiresAt: fixedNow.Add(time.Hour)}); err != nil {
+		t.Fatal(err)
+	}
+	m, err := NewManager(o, store)
+	if err != nil {
+		t.Fatal(err)
+	}
+	m.now = func() time.Time { return fixedNow }
+
+	if _, err := m.Token(context.Background()); !errors.Is(err, ErrNoToken) {
+		t.Fatalf("Token err = %v, want ErrNoToken", err)
+	}
+	if m.Authorized() {
+		t.Error("Authorized() = true после invalid_grant, want false")
+	}
+	if _, err := m.Token(context.Background()); !errors.Is(err, ErrNoToken) {
+		t.Fatalf("second Token err = %v, want ErrNoToken", err)
+	}
+	if calls != 1 {
+		t.Errorf("oauth calls = %d, want 1 (повторный Token не должен ходить в OAuth)", calls)
 	}
 }
 

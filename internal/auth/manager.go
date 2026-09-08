@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sync"
 	"time"
 
@@ -77,6 +78,13 @@ func (m *Manager) Refresh(ctx context.Context) (string, error) {
 func (m *Manager) refreshLocked(ctx context.Context) (string, error) {
 	fresh, err := m.oauth.Refresh(ctx, m.token.RefreshToken)
 	if err != nil {
+		var oe *yandex.OAuthError
+		if errors.As(err, &oe) {
+			// Отказ OAuth (invalid_grant и т.п.) — refresh-токен мёртв, разлогиниваем.
+			m.has = false
+			m.token = yandex.Token{}
+			return "", fmt.Errorf("%w: %v", ErrNoToken, err)
+		}
 		return "", err
 	}
 	if err := m.store.Save(fresh); err != nil {

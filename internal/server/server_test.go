@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -146,6 +147,7 @@ func TestErrorMapping(t *testing.T) {
 		want int
 	}{
 		{"нет токена", auth.ErrNoToken, 401},
+		{"мёртвый токен (обёрнутый ErrNoToken)", fmt.Errorf("%w: oauth: invalid_grant", auth.ErrNoToken), 401},
 		{"401 от Яндекса", &yandex.APIError{StatusCode: 401, Message: "unauthorized", RequestID: "r"}, 401},
 		{"ошибка Яндекса", &yandex.APIError{StatusCode: 404, Message: "not found", RequestID: "r"}, 502},
 		{"прочее", errors.New("boom"), 500},

@@ -17,6 +17,17 @@ const (
 	defaultTokenURL     = "https://oauth.yandex.ru/token"
 )
 
+// OAuthError — отказ сервера oauth.yandex.ru (invalid_grant, invalid_client …).
+type OAuthError struct {
+	Status      int
+	Code        string
+	Description string
+}
+
+func (e *OAuthError) Error() string {
+	return fmt.Sprintf("oauth: HTTP %d %s: %s", e.Status, e.Code, e.Description)
+}
+
 type Token struct {
 	AccessToken  string    `json:"access_token"`
 	RefreshToken string    `json:"refresh_token"`
@@ -91,7 +102,11 @@ func (o *OAuth) request(ctx context.Context, form url.Values) (Token, error) {
 		return Token{}, fmt.Errorf("oauth: неожиданный ответ (HTTP %d): %s", resp.StatusCode, truncate(body))
 	}
 	if resp.StatusCode != http.StatusOK || payload.Error != "" {
-		return Token{}, fmt.Errorf("oauth: %s: %s", payload.Error, payload.ErrorDescription)
+		code, desc := payload.Error, payload.ErrorDescription
+		if code == "" {
+			code, desc = "http_error", truncate(body)
+		}
+		return Token{}, &OAuthError{Status: resp.StatusCode, Code: code, Description: desc}
 	}
 
 	now := time.Now
