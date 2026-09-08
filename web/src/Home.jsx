@@ -5,6 +5,7 @@ import { actionErrors } from './labels'
 import { Icon } from './icons'
 import Dashboard, { groupByRoom } from './Dashboard'
 import Scenarios from './Scenarios'
+import Automations from './Automations'
 
 const ROOM_KEY = 'smart-house.room'
 const ALL = '_all'
@@ -86,8 +87,11 @@ export default function Home({ onUnauthorized }) {
           <button className={`tab${devicesTab ? ' active' : ''}`} onClick={() => setTab('devices')}>
             Устройства
           </button>
-          <button className={`tab${devicesTab ? '' : ' active'}`} onClick={() => setTab('scenarios')}>
+          <button className={`tab${tab === 'scenarios' ? ' active' : ''}`} onClick={() => setTab('scenarios')}>
             Сценарии
+          </button>
+          <button className={`tab${tab === 'automations' ? ' active' : ''}`} onClick={() => setTab('automations')}>
+            Автоматизации
           </button>
         </nav>
         <div className="head-actions">
@@ -122,8 +126,10 @@ export default function Home({ onUnauthorized }) {
         <div className="placeholder">Загружаем устройства…</div>
       ) : devicesTab ? (
         <Dashboard rooms={visible} reload={reload} onUnauthorized={onUnauthorized} />
-      ) : (
+      ) : tab === 'scenarios' ? (
         <Scenarios home={home} onUnauthorized={onUnauthorized} />
+      ) : (
+        <Automations home={home} onUnauthorized={onUnauthorized} />
       )}
     </div>
   )

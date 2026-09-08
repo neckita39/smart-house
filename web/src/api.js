@@ -32,4 +32,11 @@ export const api = {
   updateMacro: (m) => request(`/api/macros/${encodeURIComponent(m.id)}`, json('PUT', m)),
   deleteMacro: (id) => request(`/api/macros/${encodeURIComponent(id)}`, { method: 'DELETE' }),
   runMacro: (id) => request(`/api/macros/${encodeURIComponent(id)}/run`, { method: 'POST' }),
+  rules: () => request('/api/rules'),
+  createRule: (r) => request('/api/rules', json('POST', r)),
+  updateRule: (r) => request(`/api/rules/${encodeURIComponent(r.id)}`, json('PUT', r)),
+  deleteRule: (id) => request(`/api/rules/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+  runRule: (id) => request(`/api/rules/${encodeURIComponent(id)}/run`, { method: 'POST' }),
+  checkRule: (id) => request(`/api/rules/${encodeURIComponent(id)}/check`),
+  events: (limit = 50) => request(`/api/events?limit=${limit}`),
 }
