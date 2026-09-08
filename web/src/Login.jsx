@@ -20,30 +20,49 @@ export default function Login({ loginUrl, error: initialError, onLoggedIn }) {
     }
   }
 
+  const empty = !code.trim()
+
   return (
-    <div className="login card">
-      <h1>Вход через Яндекс</h1>
-      <ol>
-        <li>
-          <a href={loginUrl} target="_blank" rel="noreferrer">
-            Открыть страницу Яндекса
-          </a>{' '}
-          и разрешить доступ.
-        </li>
-        <li>Скопировать показанный код подтверждения и вставить его сюда.</li>
-      </ol>
-      <form onSubmit={submit} className="row">
-        <input
-          value={code}
-          onChange={(e) => setCode(e.target.value)}
-          placeholder="Код подтверждения"
-          autoFocus
-        />
-        <button type="submit" disabled={busy || !code.trim()}>
-          {busy ? 'Проверяем…' : 'Войти'}
-        </button>
-      </form>
-      {error && <p className="error">{error}</p>}
+    <div className="login">
+      <div className="tile">
+        <div>
+          <h1>Умный дом</h1>
+          <div className="sub">Вход через Яндекс — один раз, дальше помним</div>
+        </div>
+
+        <div className="steps">
+          <div className="step">
+            <div className="num">1</div>
+            <div className="txt">
+              <a href={loginUrl} target="_blank" rel="noreferrer">
+                Открыть страницу Яндекса
+              </a>{' '}
+              и разрешить доступ
+            </div>
+          </div>
+          <div className="step">
+            <div className="num">2</div>
+            <div className="txt">Скопировать код подтверждения и вставить сюда</div>
+          </div>
+        </div>
+
+        <form onSubmit={submit}>
+          <label className="input">
+            <input
+              value={code}
+              onChange={(e) => setCode(e.target.value)}
+              placeholder="Код подтверждения"
+              autoFocus
+              aria-label="Код подтверждения"
+            />
+          </label>
+          <button type="submit" className={`btn primary${busy || empty ? ' disabled' : ''}`} disabled={busy || empty}>
+            {busy ? 'Проверяем…' : 'Войти'}
+          </button>
+        </form>
+
+        {error && <div className="banner">{error}</div>}
+      </div>
     </div>
   )
 }

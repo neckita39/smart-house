@@ -22,7 +22,7 @@ export default function App() {
     refreshAuth(false)
   }, [refreshAuth])
 
-  if (auth === null) return <p className="muted center">Загрузка…</p>
+  if (auth === null) return <div className="loader">Загрузка…</div>
   if (!auth.authorized) return <Login loginUrl={auth.login_url} error={auth.error} onLoggedIn={refreshAuth} />
   return <Home onUnauthorized={onUnauthorized} />
 }
