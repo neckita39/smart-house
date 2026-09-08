@@ -1,6 +1,7 @@
 package rules
 
 import (
+	"reflect"
 	"sync"
 	"time"
 
@@ -10,7 +11,7 @@ import (
 type CondResult struct {
 	Index   int    `json:"index"`
 	OK      bool   `json:"ok"`
-	Current any    `json:"current,omitempty"`
+	Current any    `json:"current"`
 	Kind    string `json:"kind"`
 }
 
@@ -78,6 +79,9 @@ func compare(cur any, op string, want any) bool {
 		}
 		return false
 	}
+	if !isComparable(cur) || !isComparable(want) {
+		return false
+	}
 	switch op {
 	case "==":
 		return cur == want
@@ -85,6 +89,16 @@ func compare(cur any, op string, want any) bool {
 		return cur != want
 	}
 	return false
+}
+
+// isComparable сообщает, можно ли сравнить значение оператором == без паники.
+// Яндекс отдаёт часть умений (например, color_setting в режиме hsv) в виде
+// объекта/массива — такие значения через ==/!= не сравниваются.
+func isComparable(v any) bool {
+	if v == nil {
+		return true
+	}
+	return reflect.TypeOf(v).Comparable()
 }
 
 type ruleState struct {

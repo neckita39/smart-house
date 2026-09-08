@@ -2,6 +2,7 @@ package rules
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 	"time"
 
@@ -131,5 +132,81 @@ func TestTickZeroForMinutesFiresImmediately(t *testing.T) {
 	r.ID = "r2"
 	if fired := e.Tick([]Rule{r}, snapWith(t, 26.3, 100, now)); len(fired) != 1 {
 		t.Fatalf("for_minutes=0 должно срабатывать на первом истинном снимке: %+v", fired)
+	}
+}
+
+// TestEvaluateObjectValuedCurrentDoesNotPanic проверяет, что сравнение с
+// объектным/массивным значением умения (как color_setting в режиме hsv у
+// Яндекса) не паникует на ==/!=, а просто не проходит условие.
+func TestEvaluateObjectValuedCurrentDoesNotPanic(t *testing.T) {
+	s := snapWith(t, 26.3, 100, at(12, 0))
+	hsv := map[string]any{"h": 200.0, "s": 50.0, "v": 100.0}
+	s.Devices["blinds"].Caps["open"] = hsv // подменяем значение умения на объект
+
+	rule := Rule{When: []Condition{{DeviceID: "blinds", Capability: "open", Op: "==", Value: hsv}}}
+	ok, res := Evaluate(rule, s, at(12, 0))
+	if ok || res[0].OK {
+		t.Errorf("сравнение объектов должно быть false без паники: ok=%v res=%+v", ok, res)
+	}
+
+	list := []any{"a", "b"}
+	s.Devices["blinds"].Caps["open"] = list // и массив тоже не должен вызывать панику
+	rule2 := Rule{When: []Condition{{DeviceID: "blinds", Capability: "open", Op: "!=", Value: list}}}
+	if ok, res := Evaluate(rule2, s, at(12, 0)); ok || res[0].OK {
+		t.Errorf("сравнение массивов должно быть false без паники: ok=%v res=%+v", ok, res)
+	}
+}
+
+// TestCondResultMarshalsFalseCurrent фиксирует, что нулевые значения
+// (false, 0, "") в Current сериализуются в JSON, а не пропадают из-за
+// omitempty — самое частое значение для выключенного умения.
+func TestCondResultMarshalsFalseCurrent(t *testing.T) {
+	b, err := json.Marshal(CondResult{Index: 0, OK: false, Current: false, Kind: "capability"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(b), `"current":false`) {
+		t.Errorf(`ожидали "current":false в %s`, b)
+	}
+}
+
+// TestTickDisabledRuleDoesNotFireAndResetsState — выключенное правило не
+// срабатывает даже когда снимок «горячий» и условия уже выполнялись
+// for_minutes подряд (без гварда — сработало бы). После повторного
+// включения состояние сброшено: срабатывание требует нового отсчёта
+// for_minutes от момента включения, а не продолжения старого.
+func TestTickDisabledRuleDoesNotFireAndResetsState(t *testing.T) {
+	now := at(12, 0)
+	e := NewEngine(func() time.Time { return now })
+	r := officeHot()
+	r.ID = "r3"
+	r.ForMinutes = 5
+	r.CooldownMinutes = 0
+	hot := func(min int) snapshot.Snapshot { return snapWith(t, 26.3, 100, at(12, min)) }
+
+	// Взводим правило: условия истинны с 12:00.
+	e.Tick([]Rule{r}, hot(0))
+
+	// К 12:05 условия истинны уже for_minutes=5 минут — без гварда сработало бы.
+	// Но правило выключено прямо к этому тику.
+	now = at(12, 5)
+	r.Enabled = false
+	if fired := e.Tick([]Rule{r}, hot(5)); len(fired) != 0 {
+		t.Fatalf("выключенное правило не должно срабатывать, даже если условия готовы: %+v", fired)
+	}
+
+	// Включаем обратно: снимок всё ещё горячий, но состояние сброшено.
+	r.Enabled = true
+	now = at(12, 6)
+	if fired := e.Tick([]Rule{r}, hot(6)); len(fired) != 0 {
+		t.Fatal("сразу после включения не должно срабатывать — нужен новый отсчёт for_minutes")
+	}
+	now = at(12, 10)
+	if fired := e.Tick([]Rule{r}, hot(10)); len(fired) != 0 {
+		t.Fatal("4 минуты с момента повторного включения < for_minutes=5")
+	}
+	now = at(12, 11)
+	if fired := e.Tick([]Rule{r}, hot(11)); len(fired) != 1 {
+		t.Fatalf("должно сработать через for_minutes после повторного включения: %+v", fired)
 	}
 }
