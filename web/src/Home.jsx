@@ -29,10 +29,22 @@ function saveRoom(id) {
   }
 }
 
+// filterRooms — чистая функция поиска: пустой/пробельный запрос возвращает вход как есть,
+// иначе оставляет в каждой комнате устройства с совпадением по имени (регистр не важен)
+// и выкидывает комнаты без совпадений.
+export function filterRooms(rooms, query) {
+  const q = query.trim().toLocaleLowerCase('ru')
+  if (!q) return rooms
+  return rooms
+    .map((r) => ({ ...r, devices: r.devices.filter((d) => (d.name || '').toLocaleLowerCase('ru').includes(q)) }))
+    .filter((r) => r.devices.length)
+}
+
 export default function Home({ onUnauthorized }) {
   const [tab, setTab] = useState('devices')
   const { home, error, reload } = useHome(onUnauthorized)
   const [room, setRoom] = useState(readRoom)
+  const [query, setQuery] = useState('')
   const [actionError, setActionError] = useState('')
   const [busy, setBusy] = useState(false)
 
@@ -45,10 +57,12 @@ export default function Home({ onUnauthorized }) {
   const known = room === ALL || chips.some((c) => c.id === room)
   const selected = known ? room : chips[0]?.id ?? ALL
   const visible = selected === ALL ? rooms : rooms.filter((r) => r.id === selected)
+  const filtered = useMemo(() => filterRooms(visible, query), [visible, query])
 
   function pickRoom(id) {
     setRoom(id)
     saveRoom(id)
+    setQuery('')
   }
 
   const lights = visible.flatMap((r) =>
@@ -107,15 +121,37 @@ export default function Home({ onUnauthorized }) {
       </header>
 
       {devicesTab && home && (
-        <div className="chips">
-          {chips.map((c) => (
-            <button key={c.id} className={`chip${selected === c.id ? ' active' : ''}`} onClick={() => pickRoom(c.id)}>
-              {c.name} <span className="count">{c.count}</span>
+        <div className="chips-row">
+          <div className="chips">
+            {chips.map((c) => (
+              <button key={c.id} className={`chip${selected === c.id ? ' active' : ''}`} onClick={() => pickRoom(c.id)}>
+                {c.name} <span className="count">{c.count}</span>
+              </button>
+            ))}
+            <button className={`chip${selected === ALL ? ' active' : ''}`} onClick={() => pickRoom(ALL)}>
+              Все <span className="count">{(home.devices || []).length}</span>
             </button>
-          ))}
-          <button className={`chip${selected === ALL ? ' active' : ''}`} onClick={() => pickRoom(ALL)}>
-            Все <span className="count">{(home.devices || []).length}</span>
-          </button>
+          </div>
+          <label className="input search">
+            <input
+              type="search"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Поиск по названию"
+              aria-label="Поиск по названию"
+            />
+            {query && (
+              <button
+                type="button"
+                className="icon-btn sm inset"
+                onClick={() => setQuery('')}
+                title="Очистить"
+                aria-label="Очистить поиск"
+              >
+                <Icon name="X" size={14} />
+              </button>
+            )}
+          </label>
         </div>
       )}
 
@@ -125,7 +161,11 @@ export default function Home({ onUnauthorized }) {
       {!home ? (
         <div className="placeholder">Загружаем устройства…</div>
       ) : devicesTab ? (
-        <Dashboard rooms={visible} reload={reload} onUnauthorized={onUnauthorized} />
+        query.trim() && !filtered.length ? (
+          <div className="banner info">Ничего не найдено по «{query.trim()}»</div>
+        ) : (
+          <Dashboard rooms={filtered} reload={reload} onUnauthorized={onUnauthorized} />
+        )
       ) : tab === 'scenarios' ? (
         <Scenarios home={home} onUnauthorized={onUnauthorized} />
       ) : (
