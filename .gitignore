@@ -1,4 +1,5 @@
 .env
 data/
-node_modules/
-dist/
+web/node_modules/
+web/dist/
+smart-house
