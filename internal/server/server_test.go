@@ -198,6 +198,37 @@ func TestRunScenarioUsesPathID(t *testing.T) {
 	}
 }
 
+func TestCatalogCompactsHome(t *testing.T) {
+	raw := `{"status":"ok","request_id":"r","rooms":[{"id":"r1","name":"Кухня","devices":["d1"]}],
+	  "devices":[{"id":"d1","name":"Розетка","type":"devices.types.socket","room":"r1",
+	    "capabilities":[{"type":"devices.capabilities.on_off","parameters":{},"state":{"instance":"on","value":false}}],
+	    "properties":[]}],
+	  "scenarios":[]}`
+	srv := newTestServer(t, &fakeHome{userInfo: json.RawMessage(raw)}, &fakeAuth{authorized: true})
+	code, body := do(t, "GET", srv.URL+"/api/catalog", "")
+	if code != 200 {
+		t.Fatalf("status %d: %s", code, body)
+	}
+	var cat struct {
+		Devices []struct {
+			Room         string `json:"room"`
+			Capabilities []struct {
+				Instance string `json:"instance"`
+				Kind     string `json:"kind"`
+				Value    any    `json:"value"`
+			} `json:"capabilities"`
+		} `json:"devices"`
+	}
+	decode(t, body, &cat)
+	if len(cat.Devices) != 1 || cat.Devices[0].Room != "Кухня" {
+		t.Fatalf("catalog = %s", body)
+	}
+	c := cat.Devices[0].Capabilities
+	if len(c) != 1 || c[0].Instance != "on" || c[0].Kind != "bool" || c[0].Value != false {
+		t.Errorf("capabilities = %+v", c)
+	}
+}
+
 func TestUnknownAPIRouteIs404(t *testing.T) {
 	srv := newTestServer(t, &fakeHome{}, &fakeAuth{})
 	if code, _ := do(t, "GET", srv.URL+"/api/nope", ""); code != 404 {

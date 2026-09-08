@@ -41,6 +41,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/auth/status", s.authStatus)
 	mux.HandleFunc("POST /api/auth/code", s.authCode)
 	mux.HandleFunc("GET /api/home", s.home)
+	mux.HandleFunc("GET /api/catalog", s.catalog)
 	mux.HandleFunc("POST /api/devices/actions", s.deviceActions)
 	mux.HandleFunc("POST /api/scenarios/{id}/run", s.runScenario)
 	mux.HandleFunc("GET /api/macros", s.listMacros)
