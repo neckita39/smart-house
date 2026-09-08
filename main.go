@@ -120,11 +120,16 @@ func run(logger *slog.Logger) error {
 		close(shutdownDone)
 	}()
 	serveErr := httpServer.ListenAndServe()
-	<-shutdownDone // дожидаемся, пока Shutdown реально завершит все запросы в работе
-	if serveErr != nil && !errors.Is(serveErr, http.ErrServerClosed) {
-		return serveErr
+	if errors.Is(serveErr, http.ErrServerClosed) {
+		// Штатное завершение по сигналу: ctx уже отменён, дожидаемся,
+		// пока Shutdown реально завершит все запросы в работе.
+		<-shutdownDone
+		return nil
 	}
-	return nil
+	// Любая другая ошибка (например, порт занят) — ctx не отменялся и не
+	// отменится сам; горутина выше останется ждать <-ctx.Done() до отмены
+	// signal.NotifyContext при выходе из run через defer stop(), не блокируя нас.
+	return serveErr
 }
 
 // rulesSubscriber возвращает обработчик снимков для pl.Subscribe: считает
