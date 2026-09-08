@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { api } from './api'
-import { label, modeLabel } from './labels'
+import { label, modeLabel, unit } from './labels'
+import { Icon } from './icons'
 import { hexToHsv, hexToRgbInt, hsvToHex, rgbIntToHex } from './color'
 
 // capabilityOptions — управляемые умения устройства в виде вариантов для редактора:
@@ -17,7 +18,7 @@ export function capabilityOptions(device) {
     else if (kind === 'color_setting') {
       if (p.temperature_k) {
         const { min, max } = p.temperature_k
-        out.push({ type: cap.type, instance: 'temperature_k', kind: 'number', params: { range: { min, max, precision: 100 } } })
+        out.push({ type: cap.type, instance: 'temperature_k', kind: 'number', params: { range: { min, max, precision: 100 }, unit: 'unit.temperature.kelvin' } })
       }
       if (p.color_model) out.push({ type: cap.type, instance: p.color_model, kind: 'color', params: p })
     }
@@ -73,29 +74,59 @@ export default function MacroEditor({ home, macro, onSaved, onCancel }) {
   }
 
   return (
-    <form className="card editor" onSubmit={save}>
-      <h3>{macro.id ? 'Изменить макрос' : 'Новый макрос'}</h3>
-      <div className="control">
-        <label>Название</label>
-        <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Например, Кино" autoFocus />
+    <form className="tile editor" onSubmit={save}>
+      <div className="top">
+        <div>
+          <div className="display title">{macro.id ? 'Изменить макрос' : 'Новый макрос'}</div>
+          <div className="state">Выполняется одним запросом к Яндексу</div>
+        </div>
+        <span className="badge busy">{busy ? 'Сохраняем…' : 'не сохранён'}</span>
       </div>
-      {actions.map((a, i) => (
-        <ActionRow key={i} action={a} devices={devices} onChange={(patch) => update(i, patch)} onRemove={() => remove(i)} />
-      ))}
-      <div className="row">
-        <button type="button" onClick={addAction} disabled={!devices.length}>
-          + Действие
-        </button>
-        <button type="submit" className="primary" disabled={busy || !name.trim() || !actions.length}>
-          Сохранить
-        </button>
-        <button type="button" onClick={onCancel}>
-          Отмена
-        </button>
+
+      <div className="field">
+        <span className="sub">Название</span>
+        <label className="input inset">
+          <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Например, Кино" autoFocus aria-label="Название макроса" />
+        </label>
       </div>
-      {!devices.length && <p className="muted">Нет устройств, которыми можно управлять.</p>}
-      {error && <p className="error">{error}</p>}
+
+      <div className="field">
+        <span className="sub">Действия</span>
+        {actions.map((a, i) => (
+          <ActionRow key={i} action={a} devices={devices} onChange={(patch) => update(i, patch)} onRemove={() => remove(i)} />
+        ))}
+        {!actions.length && <span className="state">Пока ни одного действия — добавьте первое.</span>}
+      </div>
+
+      <div className="row between">
+        <button type="button" className="btn inset" onClick={addAction} disabled={!devices.length}>
+          <Icon name="PLUS" size={16} /> Действие
+        </button>
+        <div className="row">
+          <button type="button" className="btn ghost" onClick={onCancel}>
+            Отмена
+          </button>
+          <button type="submit" className="btn primary" disabled={busy || !name.trim() || !actions.length}>
+            Сохранить
+          </button>
+        </div>
+      </div>
+
+      {!devices.length && <div className="banner info">Нет устройств, которыми можно управлять.</div>}
+      {error && <div className="banner">{error}</div>}
     </form>
+  )
+}
+
+// SelectPill — пилюля .sel с нативным select и иконкой CHEV справа.
+function SelectPill({ value, onChange, children, title }) {
+  return (
+    <label className="sel inset wide">
+      <select value={value} onChange={onChange} aria-label={title}>
+        {children}
+      </select>
+      <Icon name="CHEV" size={14} stroke={2} />
+    </label>
   )
 }
 
@@ -104,14 +135,17 @@ function ActionRow({ action, devices, onChange, onRemove }) {
   const options = device ? capabilityOptions(device) : []
   const opt = options.find((o) => o.type === action.type && o.instance === action.instance)
 
+  // Устройство или умение могло исчезнуть из дома — показываем это и даём убрать строку.
   if (!device || !opt) {
     return (
-      <div className="action">
-        <span className="error">
-          {!device ? `Устройство недоступно (${action.device_id})` : `Умение недоступно (${label(action.instance)})`}
-        </span>
-        <button type="button" className="danger" onClick={onRemove} title="Убрать действие">
-          ✕
+      <div className="action missing">
+        <div className="banner">
+          {!device
+            ? `Устройство недоступно (id ${shortId(action.device_id)}) — убрано из дома в приложении Яндекса`
+            : `Умение недоступно (${label(action.instance)}) — устройство его больше не поддерживает`}
+        </div>
+        <button type="button" className="icon-btn inset" onClick={onRemove} title="Убрать действие" aria-label="Убрать действие">
+          <Icon name="X" size={16} />
         </button>
       </div>
     )
@@ -128,68 +162,80 @@ function ActionRow({ action, devices, onChange, onRemove }) {
 
   return (
     <div className="action">
-      <select value={device.id} onChange={(e) => pickDevice(e.target.value)}>
+      <SelectPill value={device.id} title="Устройство" onChange={(e) => pickDevice(e.target.value)}>
         {devices.map((d) => (
           <option key={d.id} value={d.id}>
             {d.name}
           </option>
         ))}
-      </select>
-      <select value={opt.key} onChange={(e) => pickCapability(e.target.value)}>
+      </SelectPill>
+      <SelectPill value={opt.key} title="Умение" onChange={(e) => pickCapability(e.target.value)}>
         {options.map((o) => (
           <option key={o.key} value={o.key}>
             {label(o.instance)}
           </option>
         ))}
-      </select>
+      </SelectPill>
       <ValueInput opt={opt} value={action.value} onChange={(value) => onChange({ value })} />
-      <button type="button" className="danger" onClick={onRemove} title="Убрать действие">
-        ✕
+      <button type="button" className="icon-btn inset" onClick={onRemove} title="Убрать действие" aria-label="Убрать действие">
+        <Icon name="X" size={16} />
       </button>
     </div>
   )
 }
 
+const shortId = (id = '') => (id.length > 8 ? id.slice(0, 8) + '…' : id)
+
 function ValueInput({ opt, value, onChange }) {
   switch (opt.kind) {
     case 'bool':
       return (
-        <select value={value ? '1' : '0'} onChange={(e) => onChange(e.target.value === '1')}>
+        <SelectPill value={value ? '1' : '0'} title="Значение" onChange={(e) => onChange(e.target.value === '1')}>
           <option value="1">включить</option>
           <option value="0">выключить</option>
-        </select>
+        </SelectPill>
       )
     case 'number': {
       const r = opt.params.range || {}
+      const u = unit(opt.params.unit)
       return (
-        <input
-          type="number"
-          min={r.min}
-          max={r.max}
-          step={r.precision || 1}
-          value={value ?? ''}
-          onChange={(e) => onChange(Number(e.target.value))}
-        />
+        <label className="input inset num">
+          <input
+            type="number"
+            min={r.min}
+            max={r.max}
+            step={r.precision || 1}
+            value={value ?? ''}
+            aria-label="Значение"
+            onChange={(e) => onChange(Number(e.target.value))}
+          />
+          {u && <span className="muted">{u}</span>}
+        </label>
       )
     }
     case 'mode':
       return (
-        <select value={value ?? ''} onChange={(e) => onChange(e.target.value)}>
+        <SelectPill value={value ?? ''} title="Значение" onChange={(e) => onChange(e.target.value)}>
           {(opt.params.modes || []).map((m) => (
             <option key={m.value} value={m.value}>
               {modeLabel(m.value)}
             </option>
           ))}
-        </select>
+        </SelectPill>
       )
     case 'color': {
       const hex = opt.instance === 'rgb' ? rgbIntToHex(value ?? 0xffffff) : hsvToHex(value || { h: 0, s: 0, v: 100 })
       return (
-        <input
-          type="color"
-          value={hex}
-          onChange={(e) => onChange(opt.instance === 'rgb' ? hexToRgbInt(e.target.value) : hexToHsv(e.target.value))}
-        />
+        <label className="row inset color-val">
+          <input
+            type="color"
+            className="swatch sel"
+            value={hex}
+            aria-label="Цвет"
+            onChange={(e) => onChange(opt.instance === 'rgb' ? hexToRgbInt(e.target.value) : hexToHsv(e.target.value))}
+          />
+          <span className="muted">{hex}</span>
+        </label>
       )
     }
     default:

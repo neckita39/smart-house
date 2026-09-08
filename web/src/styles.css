@@ -726,3 +726,92 @@ input[type='color'].swatch::-moz-color-swatch {
 .tile .readout {
   white-space: nowrap;
 }
+
+/* ── экран «Сценарии» ──────────────────────────────────────────────────── */
+
+.room-head .head-side {
+  margin-left: auto;
+}
+
+.grid.macros {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.tile.scenario {
+  min-height: 96px;
+  gap: 10px;
+}
+.tile.scenario .name {
+  font-size: 14px;
+}
+
+.tile.macro {
+  min-height: 0;
+  gap: 16px;
+}
+
+.tile.hint {
+  min-height: 0;
+  gap: 8px;
+  justify-content: center;
+  background: transparent;
+  border: 2px dashed var(--dash);
+}
+
+/* ── редактор макроса ──────────────────────────────────────────────────── */
+
+.tile.editor {
+  width: 100%;
+  max-width: 880px;
+  margin: 0 auto;
+  min-height: 0;
+  gap: 20px;
+  padding: 28px;
+}
+.tile.editor .title {
+  font-size: 22px;
+}
+.tile.editor .state {
+  margin-top: 4px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.action {
+  display: grid;
+  grid-template-columns: 1.3fr 1fr 1fr 42px;
+  gap: 10px;
+  align-items: center;
+}
+.action.missing {
+  grid-template-columns: 1fr 42px;
+}
+.action .banner {
+  padding: 10px 14px;
+}
+.action .input {
+  padding: 8px 12px;
+}
+.action .input.num {
+  justify-content: space-between;
+  font-weight: 500;
+}
+
+.sel.wide {
+  display: flex;
+}
+.sel.wide select {
+  flex-grow: 1;
+}
+
+.color-val {
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: var(--r-field);
+  font-size: 13px;
+  cursor: pointer;
+}
