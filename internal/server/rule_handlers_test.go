@@ -119,9 +119,15 @@ func TestRulesCRUDCheckRunEvents(t *testing.T) {
 	}
 
 	created.Enabled = false
+	created.CooldownMinutes = 0 // не переопределяем — сервер должен вернуть сохранённый дефолт (30)
 	upd, _ := json.Marshal(created)
 	if code, body = do(t, "PUT", srv.URL+"/api/rules/"+created.ID, string(upd)); code != 200 || !strings.Contains(body, `"enabled":false`) {
 		t.Errorf("update: %d %s", code, body)
+	}
+	var updated rules.Rule
+	decode(t, body, &updated)
+	if updated.CooldownMinutes != 30 {
+		t.Errorf("update должен отвечать сохранённым правилом (cooldown 30 по умолчанию), получили cooldown_minutes=%d в %s", updated.CooldownMinutes, body)
 	}
 	code, body = do(t, "GET", srv.URL+"/api/rules", "")
 	if code != 200 || !strings.Contains(body, `"last_fired"`) {
@@ -132,6 +138,15 @@ func TestRulesCRUDCheckRunEvents(t *testing.T) {
 	}
 	if code, _ = do(t, "GET", srv.URL+"/api/rules/"+created.ID+"/check", ""); code != 404 {
 		t.Errorf("check unknown: %d", code)
+	}
+}
+
+func TestCreateRuleWithoutSnapshotSkipsDeviceChecks(t *testing.T) {
+	srv, fs, _ := newRulesServer(t, &fakeHome{})
+	fs.has = false // ещё не было ни одного опроса дома (или токен мёртв)
+	code, body := do(t, "POST", srv.URL+"/api/rules", ruleJSON)
+	if code != 201 {
+		t.Errorf("create без снимка должен пройти (проверки устройств пропускаются): %d %s", code, body)
 	}
 }
 

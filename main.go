@@ -62,30 +62,20 @@ func run(logger *slog.Logger) error {
 	engine := rules.NewEngine(nil)
 	runner := &rules.Runner{Home: client, Macros: macroStore}
 	pl := poller.New(client, time.Duration(cfg.PollSeconds)*time.Second, logger)
+
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
 	if cfg.RulesEnabled {
-		pl.Subscribe(func(s snapshot.Snapshot) {
-			for _, r := range engine.Tick(ruleStore.List(), s) {
-				ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-				details, err := runner.Execute(ctx, r)
-				cancel()
-				ev := rules.Event{Time: time.Now(), RuleID: r.ID, RuleName: r.Name, OK: err == nil, Details: details}
-				if err != nil {
-					ev.Details += " — " + err.Error()
-					logger.Warn("правило выполнено с ошибкой", "rule", r.Name, "err", err, "details", details)
-				} else {
-					logger.Info("правило сработало", "rule", r.Name, "details", details)
-				}
-				if err := events.Append(ev); err != nil {
-					logger.Warn("не удалось записать событие", "err", err)
-				}
-				pl.Kick()
-			}
-		})
+		// Сработавшие правила передаются из подписчика (вызывается синхронно из цикла
+		// опроса) единственному воркеру через буферизованный канал, чтобы медленное
+		// или зависшее выполнение действий не блокировало опрос дома.
+		fired := make(chan []rules.Rule, 16)
+		pl.Subscribe(rulesSubscriber(engine, ruleStore, fired, logger))
+		go runRulesWorker(ctx, fired, runner, events, pl, logger)
 	} else {
 		logger.Info("автоматизации выключены (RULES_ENABLED=false)")
 	}
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer stop()
 	go pl.Run(ctx)
 
 	ui, err := fs.Sub(web.Dist, "dist")
@@ -123,12 +113,79 @@ func run(logger *slog.Logger) error {
 	}
 
 	httpServer := &http.Server{Addr: addr, Handler: apiServer.Handler()}
+	shutdownDone := make(chan struct{})
 	go func() {
 		<-ctx.Done()
 		_ = httpServer.Shutdown(context.Background())
+		close(shutdownDone)
 	}()
-	if err := httpServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-		return err
+	serveErr := httpServer.ListenAndServe()
+	<-shutdownDone // дожидаемся, пока Shutdown реально завершит все запросы в работе
+	if serveErr != nil && !errors.Is(serveErr, http.ErrServerClosed) {
+		return serveErr
 	}
 	return nil
+}
+
+// rulesSubscriber возвращает обработчик снимков для pl.Subscribe: считает
+// сработавшие правила синхронно (каждый снимок оценивается движком), затем
+// передаёт пачку в очередь на выполнение воркеру. Паника при оценке правил
+// логируется и не убивает процесс. Если очередь переполнена (воркер отстаёт),
+// пачка отбрасывается с предупреждением — следующий снимок оценит правила заново.
+func rulesSubscriber(engine *rules.Engine, store *rules.Store, fired chan<- []rules.Rule, logger *slog.Logger) func(snapshot.Snapshot) {
+	return func(s snapshot.Snapshot) {
+		defer func() {
+			if v := recover(); v != nil {
+				logger.Error("паника в цикле правил", "recover", v)
+			}
+		}()
+		batch := engine.Tick(store.List(), s)
+		if len(batch) == 0 {
+			return
+		}
+		select {
+		case fired <- batch:
+		default:
+			logger.Warn("очередь выполнения правил переполнена, пачка отброшена", "правил", len(batch))
+		}
+	}
+}
+
+// runRulesWorker — единственный воркер, исполняющий пачки сработавших правил по
+// очереди, пока не отменят ctx.
+func runRulesWorker(ctx context.Context, fired <-chan []rules.Rule, runner *rules.Runner, events *rules.EventLog, pl *poller.Poller, logger *slog.Logger) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case batch := <-fired:
+			for _, r := range batch {
+				executeFiredRule(r, runner, events, logger)
+			}
+			pl.Kick()
+		}
+	}
+}
+
+// executeFiredRule выполняет действия одного сработавшего правила со своим
+// таймаутом и восстановлением после паники, пишет событие в журнал.
+func executeFiredRule(r rules.Rule, runner *rules.Runner, events *rules.EventLog, logger *slog.Logger) {
+	defer func() {
+		if v := recover(); v != nil {
+			logger.Error("паника при выполнении правила", "rule", r.Name, "recover", v)
+		}
+	}()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	details, err := runner.Execute(ctx, r)
+	ev := rules.Event{Time: time.Now(), RuleID: r.ID, RuleName: r.Name, OK: err == nil, Details: details}
+	if err != nil {
+		ev.Details += " — " + err.Error()
+		logger.Warn("правило выполнено с ошибкой", "rule", r.Name, "err", err, "details", details)
+	} else {
+		logger.Info("правило сработало", "rule", r.Name, "details", details)
+	}
+	if err := events.Append(ev); err != nil {
+		logger.Warn("не удалось записать событие", "err", err)
+	}
 }

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"smarthome/internal/rules"
+	"smarthome/internal/snapshot"
 )
 
 type ruleView struct {
@@ -31,6 +32,20 @@ func (s *Server) macroExists(id string) bool {
 	}
 	_, ok := s.Macros.Get(id)
 	return ok
+}
+
+// snapshotOrNil возвращает указатель на последний снимок, если он уже есть;
+// иначе nil — Validate тогда пропускает проверки существования устройств вместо
+// того, чтобы отвергать любое правило до первого опроса дома (или пока токен мёртв).
+func (s *Server) snapshotOrNil() *snapshot.Snapshot {
+	if s.Snapshots == nil {
+		return nil
+	}
+	snap, has := s.Snapshots.Latest()
+	if !has {
+		return nil
+	}
+	return &snap
 }
 
 func (s *Server) listRules(w http.ResponseWriter, r *http.Request) {
@@ -62,8 +77,7 @@ func (s *Server) createRule(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, errorBody{Error: "bad_request", Message: err.Error()})
 		return
 	}
-	snap, _ := s.Snapshots.Latest()
-	created, err := s.Rules.Create(rule, &snap, s.macroExists)
+	created, err := s.Rules.Create(rule, s.snapshotOrNil(), s.macroExists)
 	if err != nil {
 		writeJSON(w, http.StatusBadRequest, errorBody{Error: "bad_request", Message: err.Error()})
 		return
@@ -78,12 +92,14 @@ func (s *Server) updateRule(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	rule.ID = r.PathValue("id")
-	snap, _ := s.Snapshots.Latest()
-	if err := s.Rules.Update(rule, &snap, s.macroExists); err != nil {
+	if err := s.Rules.Update(rule, s.snapshotOrNil(), s.macroExists); err != nil {
 		s.writeRuleError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, s.ruleView(rule))
+	// Store.Update может нормализовать поля (например, дефолтный cooldown при 0) —
+	// отвечаем сохранённым правилом, а не тем, что прислал клиент.
+	stored, _ := s.Rules.Get(rule.ID)
+	writeJSON(w, http.StatusOK, s.ruleView(stored))
 }
 
 func (s *Server) deleteRule(w http.ResponseWriter, r *http.Request) {
