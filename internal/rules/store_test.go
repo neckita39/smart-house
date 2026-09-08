@@ -83,18 +83,20 @@ func TestValidateRejectsBadRules(t *testing.T) {
 	s := snap(t)
 	noMacro := func(string) bool { return false }
 	cases := map[string]Rule{
-		"без имени":              {When: officeHot().When, Then: officeHot().Then},
-		"без условий":            {Name: "x", Then: officeHot().Then},
-		"без действий":           {Name: "x", When: officeHot().When},
-		"неизвестное устройство": {Name: "x", When: []Condition{{DeviceID: "nope", Property: "temperature", Op: ">", Value: 1}}, Then: officeHot().Then},
-		"неизвестный instance":   {Name: "x", When: []Condition{{DeviceID: "sensor-office", Property: "co2", Op: ">", Value: 1}}, Then: officeHot().Then},
-		"плохой оператор":        {Name: "x", When: []Condition{{DeviceID: "sensor-office", Property: "temperature", Op: "~", Value: 1}}, Then: officeHot().Then},
-		"плохое время":           {Name: "x", When: []Condition{{Time: &TimeWindow{After: "25:00", Before: "17:00"}}}, Then: officeHot().Then},
-		"условие без вида":       {Name: "x", When: []Condition{{Op: ">", Value: 1}}, Then: officeHot().Then},
-		"режим вне списка":       {Name: "x", When: officeHot().When, Then: []Action{{DeviceID: "fan", Type: "devices.capabilities.mode", Instance: "fan_speed", Value: "turbo"}}},
-		"число вне диапазона":    {Name: "x", When: officeHot().When, Then: []Action{{DeviceID: "blinds", Type: "devices.capabilities.range", Instance: "open", Value: 140}}},
-		"неизвестный макрос":     {Name: "x", When: officeHot().When, Then: []Action{{MacroID: "m1"}}},
-		"неизвестный сценарий":   {Name: "x", When: officeHot().When, Then: []Action{{ScenarioID: "s9"}}},
+		"без имени":                       {When: officeHot().When, Then: officeHot().Then},
+		"без условий":                     {Name: "x", Then: officeHot().Then},
+		"без действий":                    {Name: "x", When: officeHot().When},
+		"неизвестное устройство":          {Name: "x", When: []Condition{{DeviceID: "nope", Property: "temperature", Op: ">", Value: 1}}, Then: officeHot().Then},
+		"неизвестный instance":            {Name: "x", When: []Condition{{DeviceID: "sensor-office", Property: "co2", Op: ">", Value: 1}}, Then: officeHot().Then},
+		"плохой оператор":                 {Name: "x", When: []Condition{{DeviceID: "sensor-office", Property: "temperature", Op: "~", Value: 1}}, Then: officeHot().Then},
+		"плохое время":                    {Name: "x", When: []Condition{{Time: &TimeWindow{After: "25:00", Before: "17:00"}}}, Then: officeHot().Then},
+		"условие без вида":                {Name: "x", When: []Condition{{Op: ">", Value: 1}}, Then: officeHot().Then},
+		"режим вне списка":                {Name: "x", When: officeHot().When, Then: []Action{{DeviceID: "fan", Type: "devices.capabilities.mode", Instance: "fan_speed", Value: "turbo"}}},
+		"число вне диапазона":             {Name: "x", When: officeHot().When, Then: []Action{{DeviceID: "blinds", Type: "devices.capabilities.range", Instance: "open", Value: 140}}},
+		"неизвестный макрос":              {Name: "x", When: officeHot().When, Then: []Action{{MacroID: "m1"}}},
+		"неизвестный сценарий":            {Name: "x", When: officeHot().When, Then: []Action{{ScenarioID: "s9"}}},
+		"умение не у устройства":          {Name: "x", When: officeHot().When, Then: []Action{{DeviceID: "fan", Type: "devices.capabilities.range", Instance: "brightness", Value: 10}}},
+		"instance-свойство вместо умения": {Name: "x", When: officeHot().When, Then: []Action{{DeviceID: "sensor-office", Type: "devices.capabilities.range", Instance: "temperature", Value: 10}}},
 	}
 	for name, r := range cases {
 		if err := r.Validate(s, noMacro); err == nil {

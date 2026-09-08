@@ -164,6 +164,11 @@ func (a Action) validate(snap *snapshot.Snapshot, macroExists func(string) bool)
 	if !ok {
 		return fmt.Errorf("устройство %s не найдено в доме", a.DeviceID)
 	}
+	if _, ok := d.CapTypes[a.Instance]; !ok {
+		if _, ok := d.Caps[a.Instance]; !ok {
+			return fmt.Errorf("у устройства «%s» нет умения %q", d.Name, a.Instance)
+		}
+	}
 	if modes, ok := d.Modes[a.Instance]; ok {
 		s, isStr := a.Value.(string)
 		found := false
