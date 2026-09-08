@@ -2,16 +2,24 @@
 package main
 
 import (
+	"context"
+	"errors"
 	"io/fs"
 	"log/slog"
 	"net/http"
 	"os"
+	"os/signal"
 	"path/filepath"
+	"syscall"
+	"time"
 
 	"smarthome/internal/auth"
 	"smarthome/internal/config"
 	"smarthome/internal/macros"
+	"smarthome/internal/poller"
+	"smarthome/internal/rules"
 	"smarthome/internal/server"
+	"smarthome/internal/snapshot"
 	"smarthome/internal/yandex"
 	"smarthome/web"
 )
@@ -41,6 +49,44 @@ func run(logger *slog.Logger) error {
 	if err != nil {
 		return err
 	}
+	client := &yandex.Client{Tokens: tokens, Log: logger}
+
+	ruleStore, err := rules.NewStore(filepath.Join(cfg.DataDir, "rules.json"))
+	if err != nil {
+		return err
+	}
+	events, err := rules.NewEventLog(filepath.Join(cfg.DataDir, "events.jsonl"), 500)
+	if err != nil {
+		return err
+	}
+	engine := rules.NewEngine(nil)
+	runner := &rules.Runner{Home: client, Macros: macroStore}
+	pl := poller.New(client, time.Duration(cfg.PollSeconds)*time.Second, logger)
+	if cfg.RulesEnabled {
+		pl.Subscribe(func(s snapshot.Snapshot) {
+			for _, r := range engine.Tick(ruleStore.List(), s) {
+				ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+				details, err := runner.Execute(ctx, r)
+				cancel()
+				ev := rules.Event{Time: time.Now(), RuleID: r.ID, RuleName: r.Name, OK: err == nil, Details: details}
+				if err != nil {
+					ev.Details += " — " + err.Error()
+					logger.Warn("правило выполнено с ошибкой", "rule", r.Name, "err", err, "details", details)
+				} else {
+					logger.Info("правило сработало", "rule", r.Name, "details", details)
+				}
+				if err := events.Append(ev); err != nil {
+					logger.Warn("не удалось записать событие", "err", err)
+				}
+				pl.Kick()
+			}
+		})
+	} else {
+		logger.Info("автоматизации выключены (RULES_ENABLED=false)")
+	}
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	go pl.Run(ctx)
 
 	ui, err := fs.Sub(web.Dist, "dist")
 	if err != nil {
@@ -51,10 +97,15 @@ func run(logger *slog.Logger) error {
 		ui = nil
 	}
 
-	srv := &server.Server{
+	apiServer := &server.Server{
 		Auth:         tokens,
-		Home:         &yandex.Client{Tokens: tokens, Log: logger},
+		Home:         client,
 		Macros:       macroStore,
+		Snapshots:    pl,
+		Rules:        ruleStore,
+		Runner:       runner,
+		Events:       events,
+		Engine:       engine,
 		UI:           ui,
 		Log:          logger,
 		AllowedHosts: cfg.AllowedHosts,
@@ -70,5 +121,14 @@ func run(logger *slog.Logger) error {
 		logger.Info("сервер запущен", "url", "http://"+displayHost+":"+cfg.Port,
 			"authorized", tokens.Authorized())
 	}
-	return http.ListenAndServe(addr, srv.Handler())
+
+	httpServer := &http.Server{Addr: addr, Handler: apiServer.Handler()}
+	go func() {
+		<-ctx.Done()
+		_ = httpServer.Shutdown(context.Background())
+	}()
+	if err := httpServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+		return err
+	}
+	return nil
 }

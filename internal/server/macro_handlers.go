@@ -59,6 +59,9 @@ func (s *Server) runMacro(w http.ResponseWriter, r *http.Request) {
 		s.writeError(w, err)
 		return
 	}
+	if s.Snapshots != nil {
+		s.Snapshots.Kick()
+	}
 	writeRaw(w, raw)
 }
 

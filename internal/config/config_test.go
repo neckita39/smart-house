@@ -9,7 +9,7 @@ import (
 
 func clearEnv(t *testing.T) {
 	t.Helper()
-	for _, k := range []string{"YANDEX_CLIENT_ID", "YANDEX_CLIENT_SECRET", "PORT", "DATA_DIR", "HOST", "ALLOWED_HOSTS"} {
+	for _, k := range []string{"YANDEX_CLIENT_ID", "YANDEX_CLIENT_SECRET", "PORT", "DATA_DIR", "HOST", "ALLOWED_HOSTS", "POLL_SECONDS", "RULES_ENABLED"} {
 		t.Setenv(k, "")
 	}
 }
@@ -110,5 +110,24 @@ func TestLoadParsesAllowedHosts(t *testing.T) {
 	want := []string{"192.168.1.95", "smart-house.local"}
 	if !reflect.DeepEqual(cfg.AllowedHosts, want) {
 		t.Errorf("AllowedHosts = %v, want %v", cfg.AllowedHosts, want)
+	}
+}
+
+func TestLoadPollAndRules(t *testing.T) {
+	clearEnv(t)
+	t.Setenv("YANDEX_CLIENT_ID", "id")
+	t.Setenv("YANDEX_CLIENT_SECRET", "sec")
+	cfg, err := Load(filepath.Join(t.TempDir(), "nope.env"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.PollSeconds != 10 || !cfg.RulesEnabled {
+		t.Errorf("defaults: poll=%d rules=%v", cfg.PollSeconds, cfg.RulesEnabled)
+	}
+	t.Setenv("POLL_SECONDS", "1")
+	t.Setenv("RULES_ENABLED", "false")
+	cfg, _ = Load(filepath.Join(t.TempDir(), "nope.env"))
+	if cfg.PollSeconds != 3 || cfg.RulesEnabled {
+		t.Errorf("overrides: poll=%d (min 3) rules=%v", cfg.PollSeconds, cfg.RulesEnabled)
 	}
 }

@@ -14,6 +14,8 @@ import (
 
 	"smarthome/internal/auth"
 	"smarthome/internal/macros"
+	"smarthome/internal/rules"
+	"smarthome/internal/snapshot"
 	"smarthome/internal/yandex"
 )
 
@@ -31,11 +33,23 @@ type Auth interface {
 	Login(ctx context.Context, code string) error
 }
 
+// Snapshots — то, что серверу нужно от опроса дома; реализуется *poller.Poller.
+type Snapshots interface {
+	Latest() (snapshot.Snapshot, bool)
+	Refresh(ctx context.Context) (snapshot.Snapshot, error)
+	Kick()
+}
+
 type Server struct {
 	Auth         Auth
 	Home         HomeAPI
 	Macros       *macros.Store
-	UI           fs.FS // корень собранного фронтенда; nil — UI не раздаётся
+	Snapshots    Snapshots // nil — прежнее поведение: /api/home и /api/catalog ходят в Яндекс напрямую
+	Rules        *rules.Store
+	Runner       *rules.Runner
+	Events       *rules.EventLog
+	Engine       *rules.Engine // для last_fired
+	UI           fs.FS         // корень собранного фронтенда; nil — UI не раздаётся
 	Log          *slog.Logger
 	AllowedHosts []string // хосты/IP из локальной сети, которым разрешён доступ к /api/ (без порта)
 }
@@ -53,6 +67,15 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("PUT /api/macros/{id}", s.updateMacro)
 	mux.HandleFunc("DELETE /api/macros/{id}", s.deleteMacro)
 	mux.HandleFunc("POST /api/macros/{id}/run", s.runMacro)
+	if s.Rules != nil {
+		mux.HandleFunc("GET /api/rules", s.listRules)
+		mux.HandleFunc("POST /api/rules", s.createRule)
+		mux.HandleFunc("PUT /api/rules/{id}", s.updateRule)
+		mux.HandleFunc("DELETE /api/rules/{id}", s.deleteRule)
+		mux.HandleFunc("POST /api/rules/{id}/run", s.runRule)
+		mux.HandleFunc("GET /api/rules/{id}/check", s.checkRule)
+		mux.HandleFunc("GET /api/events", s.listEvents)
+	}
 	mux.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusNotFound, errorBody{Error: "not_found", Message: "нет такого метода API"})
 	})

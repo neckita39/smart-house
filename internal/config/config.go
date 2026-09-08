@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"slices"
+	"strconv"
 	"strings"
 )
 
@@ -16,6 +18,8 @@ type Config struct {
 	DataDir      string
 	Host         string
 	AllowedHosts []string
+	PollSeconds  int
+	RulesEnabled bool
 }
 
 // Load читает файл envPath (если он есть) и переменные окружения;
@@ -34,6 +38,13 @@ func Load(envPath string) (Config, error) {
 		}
 		return def
 	}
+	pollSeconds, err := strconv.Atoi(get("POLL_SECONDS", "10"))
+	if err != nil {
+		return Config{}, fmt.Errorf("POLL_SECONDS: ожидается целое число, получено %q", get("POLL_SECONDS", "10"))
+	}
+	if pollSeconds < 3 {
+		pollSeconds = 3
+	}
 	cfg := Config{
 		ClientID:     get("YANDEX_CLIENT_ID", ""),
 		ClientSecret: get("YANDEX_CLIENT_SECRET", ""),
@@ -41,6 +52,8 @@ func Load(envPath string) (Config, error) {
 		DataDir:      get("DATA_DIR", "data"),
 		Host:         get("HOST", "127.0.0.1"),
 		AllowedHosts: parseAllowedHosts(get("ALLOWED_HOSTS", "")),
+		PollSeconds:  pollSeconds,
+		RulesEnabled: !slices.Contains([]string{"false", "0", "no", "off"}, strings.ToLower(get("RULES_ENABLED", "true"))),
 	}
 	if cfg.ClientID == "" || cfg.ClientSecret == "" {
 		return Config{}, errors.New("нужны YANDEX_CLIENT_ID и YANDEX_CLIENT_SECRET (в .env или переменных окружения)")
