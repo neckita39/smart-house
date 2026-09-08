@@ -1,11 +1,7 @@
 import { useState } from 'react'
 import { useHome } from './useHome'
 import Dashboard from './Dashboard'
-
-// Scenarios появится в Task 11; до тех пор — заглушка.
-function Scenarios() {
-  return <p className="muted center">Сценарии — в следующем шаге.</p>
-}
+import Scenarios from './Scenarios'
 
 export default function Home({ onUnauthorized }) {
   const [tab, setTab] = useState('devices')
