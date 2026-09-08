@@ -43,6 +43,11 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/home", s.home)
 	mux.HandleFunc("POST /api/devices/actions", s.deviceActions)
 	mux.HandleFunc("POST /api/scenarios/{id}/run", s.runScenario)
+	mux.HandleFunc("GET /api/macros", s.listMacros)
+	mux.HandleFunc("POST /api/macros", s.createMacro)
+	mux.HandleFunc("PUT /api/macros/{id}", s.updateMacro)
+	mux.HandleFunc("DELETE /api/macros/{id}", s.deleteMacro)
+	mux.HandleFunc("POST /api/macros/{id}/run", s.runMacro)
 	mux.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusNotFound, errorBody{Error: "not_found", Message: "нет такого метода API"})
 	})
