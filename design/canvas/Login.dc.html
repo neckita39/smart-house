@@ -1,0 +1,68 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;600&family=Onest:wght@400;500;600&display=swap">
+  <style>
+    body { margin: 0; background: #eef1f6; color: #16202b; font-family: 'Onest', system-ui, -apple-system, sans-serif; font-size: 14px; line-height: 1.4; }
+    a { color: #2f6fed; } a:hover { color: #1f54bd; }
+    .display { font-family: 'Unbounded', 'Arial Black', sans-serif; }
+    .tab { padding: 10px 18px; border-radius: 14px; font-weight: 600; color: #5b6a7c; background: #ffffff; }
+    .tab.active { background: #16202b; color: #ffffff; }
+    .chip { padding: 8px 14px; border-radius: 999px; background: #ffffff; color: #5b6a7c; white-space: nowrap; }
+    .chip.active { background: #16202b; color: #ffffff; font-weight: 500; }
+    .btn { display: inline-flex; align-items: center; gap: 8px; padding: 10px 16px; border-radius: 14px; background: #ffffff; color: #16202b; font-weight: 500; }
+    .btn.primary { background: #16202b; color: #ffffff; }
+    .btn.danger { color: #e5484d; }
+    .btn.disabled { opacity: .45; }
+    .icon-btn { width: 42px; height: 42px; border-radius: 14px; background: #ffffff; display: inline-flex; align-items: center; justify-content: center; color: #5b6a7c; }
+    .icon-btn svg, .btn svg { width: 18px; height: 18px; }
+    .tile { border-radius: 22px; padding: 18px; min-height: 150px; display: flex; flex-direction: column; justify-content: space-between; gap: 12px; background: #ffffff; color: #16202b; }
+    .tile.on-light { background: #ffd27a; }
+    .tile.on-air { background: #9fe3d2; }
+    .tile.on-curtain { background: #c9d7ff; }
+    .tile.on-power { background: #ffc9b8; }
+    .tile.busy { opacity: .55; }
+    .tile .top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+    .tile .ico { width: 40px; height: 40px; border-radius: 14px; background: rgba(22,32,43,.06); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .tile .ico svg { width: 20px; height: 20px; }
+    .tile .name { font-weight: 600; font-size: 15px; }
+    .tile .state { font-size: 13px; color: rgba(22,32,43,.62); }
+    .tile .state.err { color: #b3261e; font-weight: 500; }
+    .sw { width: 44px; height: 26px; border-radius: 13px; background: rgba(22,32,43,.12); position: relative; flex-shrink: 0; }
+    .sw::after { content: ''; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 10px; background: #ffffff; box-shadow: 0 1px 3px rgba(0,0,0,.2); }
+    .sw.on { background: #16202b; }
+    .sw.on::after { left: 21px; }
+    .slider { display: flex; align-items: center; gap: 10px; font-size: 13px; }
+    .slider .lbl { color: rgba(22,32,43,.62); width: 78px; flex-shrink: 0; }
+    .slider .track { flex-grow: 1; height: 6px; border-radius: 3px; background: rgba(22,32,43,.12); position: relative; }
+    .slider .fill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 3px; background: #16202b; }
+    .slider .knob { position: absolute; top: -7px; width: 20px; height: 20px; border-radius: 10px; background: #ffffff; border: 2px solid #16202b; margin-left: -10px; box-sizing: border-box; }
+    .slider .val { font-weight: 600; font-variant-numeric: tabular-nums; min-width: 54px; text-align: right; }
+    .sel { display: inline-flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 12px; border-radius: 12px; background: rgba(22,32,43,.06); font-weight: 500; font-size: 13px; }
+    .swatches { display: flex; gap: 8px; }
+    .swatch { width: 22px; height: 22px; border-radius: 11px; box-shadow: 0 0 0 1px rgba(22,32,43,.12); }
+    .swatch.sel { box-shadow: 0 0 0 2px #16202b; }
+    .badge { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; white-space: nowrap; }
+    .badge.ok { background: #d9f5ea; color: #1f7a55; }
+    .badge.busy { background: rgba(22,32,43,.06); color: #5b6a7c; }
+    .badge.err { background: #fde2e3; color: #b3261e; }
+    .input { display: flex; align-items: center; padding: 12px 14px; border-radius: 12px; background: #ffffff; border: 1.5px solid transparent; color: #16202b; }
+    .input.focus { border-color: #16202b; }
+    .input .ph { color: #8b97a7; }
+    .banner { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-radius: 14px; background: #fde2e3; color: #b3261e; font-weight: 500; }
+    .big { font-size: 34px; font-weight: 600; letter-spacing: -.02em; line-height: 1; font-variant-numeric: tabular-nums; }
+    .unit { font-size: 14px; font-weight: 500; color: #5b6a7c; margin-left: 4px; }
+    .muted { color: #5b6a7c; }
+    .row { display: flex; align-items: center; gap: 10px; }
+  </style>
+</helmet>
+<div style="width: 1280px; height: 720px; overflow: hidden; background: #eef1f6; box-sizing: border-box; padding: 26px 32px; display: flex; flex-direction: column; gap: 40px;"><div class="display" style="font-size: 20px; font-weight: 600;">Умный дом</div><div style="display: flex; gap: 60px; align-items: flex-start; justify-content: center;"><div style="display: flex; flex-direction: column; gap: 10px;"><span class="muted" style="font-size: 12px; letter-spacing: .08em; text-transform: uppercase;">Обычное состояние</span><div class="tile" style="width: 520px; gap: 22px; min-height: 0; padding: 28px;"><div><div class="display" style="font-size: 26px; font-weight: 600;">Умный дом</div><div class="muted" style="margin-top: 6px;">Вход через Яндекс — один раз, дальше помним</div></div><div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px;"><div style="background: #eef1f6; border-radius: 16px; padding: 14px;"><div class="display" style="font-size: 18px;">1</div><div style="margin-top: 6px; font-size: 13px;"><a href="#">Открыть страницу Яндекса</a> и разрешить доступ</div></div><div style="background: #eef1f6; border-radius: 16px; padding: 14px;"><div class="display" style="font-size: 18px;">2</div><div style="margin-top: 6px; font-size: 13px;">Скопировать код подтверждения и вставить сюда</div></div></div><div class="row"><div class="input focus" style="flex-grow: 1; background: #eef1f6;"><span class="ph">Код подтверждения</span></div><span class="btn primary disabled">Войти</span></div></div></div><div style="display: flex; flex-direction: column; gap: 10px;"><span class="muted" style="font-size: 12px; letter-spacing: .08em; text-transform: uppercase;">Ошибка</span><div class="tile" style="width: 520px; gap: 22px; min-height: 0; padding: 28px;"><div><div class="display" style="font-size: 26px; font-weight: 600;">Умный дом</div><div class="muted" style="margin-top: 6px;">Вход через Яндекс — один раз, дальше помним</div></div><div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px;"><div style="background: #eef1f6; border-radius: 16px; padding: 14px;"><div class="display" style="font-size: 18px;">1</div><div style="margin-top: 6px; font-size: 13px;"><a href="#">Открыть страницу Яндекса</a> и разрешить доступ</div></div><div style="background: #eef1f6; border-radius: 16px; padding: 14px;"><div class="display" style="font-size: 18px;">2</div><div style="margin-top: 6px; font-size: 13px;">Скопировать код подтверждения и вставить сюда</div></div></div><div class="row"><div class="input" style="flex-grow: 1; background: #eef1f6; font-variant-numeric: tabular-nums;">1234567</div><span class="btn primary">Войти</span></div><div class="banner">Не удалось войти: код истёк, запросите новый на странице Яндекса</div></div></div></div></div>
+</x-dc>
+</body>
+</html>
