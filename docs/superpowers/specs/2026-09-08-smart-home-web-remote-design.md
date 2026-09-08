@@ -54,21 +54,24 @@
 
 OAuth-приложение уже зарегистрировано на oauth.yandex.ru
 (client_id/secret лежат в `.env`, в git не попадают).
-В настройках приложения нужно добавить Redirect URI:
-`http://localhost:8080/auth/callback`.
+Redirect URI приложения — стандартный
+`https://oauth.yandex.ru/verification_code` (добавить localhost-адрес
+Яндекс не позволил), поэтому используется поток с ручной вставкой кода:
 
-Поток:
-
-1. `GET /auth/login` → redirect на
-   `https://oauth.yandex.ru/authorize?response_type=code&client_id=...`.
-2. Пользователь разрешает доступ, Яндекс редиректит на
-   `/auth/callback?code=...`.
-3. Сервер меняет код на access + refresh токены
+1. Фронт показывает кнопку «Получить код» — ссылка на
+   `https://oauth.yandex.ru/authorize?response_type=code&client_id=...`,
+   открывается в новой вкладке.
+2. Пользователь разрешает доступ, Яндекс показывает код подтверждения
+   на своей странице.
+3. Пользователь вставляет код в форму приложения →
+   `POST /api/auth/code`.
+4. Сервер меняет код на access + refresh токены
    (`POST https://oauth.yandex.ru/token`, client_id + client_secret).
-4. Токены сохраняются в `data/token.json`; сервер обновляет access-токен
-   по refresh-токену до истечения срока. Повторный вход не нужен.
-5. Если токен невалиден и обновить не удалось — `/api/*` отвечает 401,
-   фронт показывает кнопку «Войти через Яндекс».
+5. Токены сохраняются в `data/token.json`; сервер обновляет access-токен
+   по refresh-токену до истечения срока. Повторный вход не нужен
+   (это разовая процедура).
+6. Если токен невалиден и обновить не удалось — `/api/*` отвечает 401,
+   фронт снова показывает форму входа.
 
 ## Бэкенд (Go, стандартная библиотека)
 
@@ -84,7 +87,8 @@ OAuth-приложение уже зарегистрировано на oauth.ya
 | PUT | `/api/macros/{id}` | Обновить макрос |
 | DELETE | `/api/macros/{id}` | Удалить макрос |
 | POST | `/api/macros/{id}/run` | Выполнить макрос через `devices/actions` |
-| GET | `/auth/login`, `/auth/callback`, `GET /api/auth/status` | OAuth-поток |
+| POST | `/api/auth/code` | Обмен кода подтверждения на токены |
+| GET | `/api/auth/status` | Авторизованы ли мы (для фронта) |
 
 Макрос: `{id, name, actions: [{device_id, capability_type, instance,
 value}, ...]}` — хранится в `data/macros.json`, выполняется одним
