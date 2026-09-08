@@ -815,3 +815,114 @@ input[type='color'].swatch::-moz-color-swatch {
   font-size: 13px;
   cursor: pointer;
 }
+
+/* ── адаптив ───────────────────────────────────────────────────────────── */
+
+@media (max-width: 1100px) {
+  .grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .grid.macros {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 800px) {
+  .grid,
+  .grid.macros {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* Телефон: шапка в две строки, вкладки сегментом, чипы прокруткой. */
+@media (max-width: 700px) {
+  :root {
+    --pad-page: 18px 16px;
+    --gap-grid: 10px;
+  }
+
+  .app {
+    gap: 16px;
+  }
+  .app-head {
+    gap: 10px;
+  }
+  .app-head .brand {
+    font-size: 18px;
+  }
+  .app-head .head-actions {
+    flex: 0 0 auto;
+  }
+  .app-head .tabs {
+    order: 3;
+    width: 100%;
+    gap: 6px;
+    padding: 4px;
+    border-radius: 16px;
+    background: var(--surface);
+  }
+  .app-head .tabs .tab {
+    flex: 1;
+    padding: 9px;
+    text-align: center;
+    background: transparent;
+  }
+  .app-head .tabs .tab.active {
+    background: var(--ink);
+  }
+
+  .chips {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+  .chips::-webkit-scrollbar {
+    display: none;
+  }
+
+  .room-head h2 {
+    font-size: 22px;
+  }
+  .room-head .sub {
+    font-size: 12px;
+  }
+
+  .grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .grid.macros {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .tile.climate {
+    grid-column: span 2;
+    min-height: 120px;
+  }
+
+  /* В узкой плитке подпись слайдера не помещается — значение говорит само. */
+  .grid .tile .slider .lbl {
+    display: none;
+  }
+  .grid .tile .slider .val {
+    min-width: 44px;
+  }
+  .grid .tile .sel {
+    flex-wrap: wrap;
+    row-gap: 2px;
+  }
+
+  .login .steps {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .login .tile,
+  .tile.editor {
+    padding: 18px;
+  }
+  .action,
+  .action.missing {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .action .icon-btn {
+    justify-self: end;
+  }
+}
